@@ -15,18 +15,25 @@
 TOPOS-Ξ (pronounced "Topos-Xi") is a revolutionary programming language that seamlessly integrates topological mathematics with quantum computing paradigms. By expressing computations as continuous transformations in topological spaces, it provides an elegant and powerful framework for both classical and quantum computation.
 
 ```topology
-space HelloQuantum {
+Space HelloQuantum {
     shape Message {
         properties {
-            content: Quantum<Text>
+            content: Quantum<Text> = superposition("Hello", "Quantum", "World")
+            observable: Boolean = true
         }
     }
 
     mapping display() {
+        properties {
+            continuous: true
+            quantum: true
+        }
+        
         path {
-            prepare_quantum_state ->
-            apply_transformation ->
-            measure_result
+            prepare_quantum_state -> 
+            apply_hadamard_transform ->
+            project_to_classical ->
+            emit_to_observer
         }
     }
 }
