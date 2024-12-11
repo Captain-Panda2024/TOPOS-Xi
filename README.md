@@ -58,10 +58,10 @@ Space HelloQuantum {
 
 ## 📚 Documentation
 
-- [Getting Started Guide](docs/tutorials/getting-started.md)
-- [Language Specification](docs/spec/overview.md)
-- [Standard Library Reference](docs/spec/stdlib/index.md)
-- [Design Patterns](docs/spec/patterns/index.md)
+- [Getting Started Guide](docs/getting-started/README.md)
+- [Language Specification](docs/spec/language_core.md)
+- [Standard Library Reference](docs/stdlib/standard_library.md)
+- [Design Patterns](docs/patterns/README.md)
 - [Examples Gallery](docs/examples/README.md)
 
 ## 🚀 Quick Start
