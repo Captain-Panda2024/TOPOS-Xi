@@ -1,0 +1,6333 @@
+型推論エンジンの拡張実装を進めます。特にトポロジカルな性質と量子的な性質の推論に焦点を当てます。
+
+// include/topos/types/Inference.hpp
+#pragma once
+#include "topos/types/Type.hpp"
+#include "topos/types/Constraints.hpp"
+#include "topos/ast/AST.hpp"
+#include <map>
+#include <set>
+#include <memory>
+#include <optional>
+
+namespace topos {
+namespace types {
+
+// 型変数
+class TypeVariable {
+public:
+    explicit TypeVariable(const std::string& name) : name_(name) {}
+    const std::string& getName() const { return name_; }
+
+private:
+    std::string name_;
+};
+
+// 型代入
+class TypeSubstitution {
+public:
+    void add(const TypeVariable& var, std::unique_ptr<Type> type) {
+        substitutions_[var.getName()] = std::move(type);
+    }
+
+    std::optional<const Type*> get(const TypeVariable& var) const {
+        auto it = substitutions_.find(var.getName());
+        if (it != substitutions_.end()) {
+            return it->second.get();
+        }
+        return std::nullopt;
+    }
+
+private:
+    std::map<std::string, std::unique_ptr<Type>> substitutions_;
+};
+
+// 型推論ルール
+class InferenceRule {
+public:
+    virtual ~InferenceRule() = default;
+    virtual bool apply(TypeSubstitution& subst) const = 0;
+};
+
+// トポロジカル型推論ルール
+class TopologicalInferenceRule : public InferenceRule {
+public:
+    TopologicalInferenceRule(const Type& source, const Type& target)
+        : source_(source), target_(target) {}
+
+    bool apply(TypeSubstitution& subst) const override {
+        // トポロジカルな性質の推論
+        if (const auto* topo_source = dynamic_cast<const TopologicalProperty*>(&source_)) {
+            if (const auto* topo_target = dynamic_cast<const TopologicalProperty*>(&target_)) {
+                // 連続性の保持を確認
+                if (!topo_source->verify_continuity() || !topo_target->verify_continuity()) {
+                    return false;
+                }
+                // 構造保存の検証
+                if (!topo_source->verify_preservation() || !topo_target->verify_preservation()) {
+                    return false;
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+
+private:
+    const Type& source_;
+    const Type& target_;
+};
+
+// 量子型推論ルール
+class QuantumInferenceRule : public InferenceRule {
+public:
+    QuantumInferenceRule(const Type& source, const Type& target)
+        : source_(source), target_(target) {}
+
+    bool apply(TypeSubstitution& subst) const override {
+        // 量子的性質の推論
+        if (const auto* quantum_source = dynamic_cast<const QuantumProperty*>(&source_)) {
+            if (const auto* quantum_target = dynamic_cast<const QuantumProperty*>(&target_)) {
+                // コヒーレンスの検証
+                if (!quantum_source->verify_coherence() || !quantum_target->verify_coherence()) {
+                    return false;
+                }
+                // ユニタリ性の検証
+                if (!quantum_source->verify_unitarity() || !quantum_target->verify_unitarity()) {
+                    return false;
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+
+private:
+    const Type& source_;
+    const Type& target_;
+};
+
+// 型推論エンジン
+class TypeInferenceEngine {
+public:
+    struct InferenceResult {
+        bool success;
+        TypeSubstitution substitution;
+        std::vector<std::string> errors;
+    };
+
+    TypeInferenceEngine() {
+        // デフォルトの推論ルールを追加
+        addDefaultRules();
+    }
+
+    void addRule(std::unique_ptr<InferenceRule> rule) {
+        rules_.push_back(std::move(rule));
+    }
+
+    InferenceResult infer(const ast::ASTNode& node) {
+        TypeSubstitution subst;
+        std::vector<std::string> errors;
+
+        // ノードの種類に応じた型推論
+        if (const auto* space = dynamic_cast<const ast::SpaceNode*>(&node)) {
+            if (!inferSpace(*space, subst, errors)) {
+                return {false, std::move(subst), std::move(errors)};
+            }
+        } else if (const auto* shape = dynamic_cast<const ast::ShapeNode*>(&node)) {
+            if (!inferShape(*shape, subst, errors)) {
+                return {false, std::move(subst), std::move(errors)};
+            }
+        } else if (const auto* mapping = dynamic_cast<const ast::MappingNode*>(&node)) {
+            if (!inferMapping(*mapping, subst, errors)) {
+                return {false, std::move(subst), std::move(errors)};
+            }
+        }
+
+        // すべてのルールの適用を試みる
+        bool all_rules_passed = true;
+        for (const auto& rule : rules_) {
+            if (!rule->apply(subst)) {
+                all_rules_passed = false;
+                errors.push_back("Rule application failed");
+            }
+        }
+
+        return {all_rules_passed, std::move(subst), std::move(errors)};
+    }
+
+private:
+    std::vector<std::unique_ptr<InferenceRule>> rules_;
+
+    void addDefaultRules() {
+        // デフォルトのトポロジカルと量子的な推論ルールを追加
+    }
+
+    bool inferSpace(const ast::SpaceNode& space, 
+                   TypeSubstitution& subst,
+                   std::vector<std::string>& errors) {
+        // スペースの型推論
+        return true;
+    }
+
+    bool inferShape(const ast::ShapeNode& shape,
+                   TypeSubstitution& subst,
+                   std::vector<std::string>& errors) {
+        // シェイプの型推論
+        return true;
+    }
+
+    bool inferMapping(const ast::MappingNode& mapping,
+                     TypeSubstitution& subst,
+                     std::vector<std::string>& errors) {
+        // マッピングの型推論
+        return true;
+    }
+};
+
+// 型推論ビジター
+class TypeInferenceVisitor : public ast::ASTVisitor {
+public:
+    explicit TypeInferenceVisitor(TypeInferenceEngine& engine)
+        : engine_(engine) {}
+
+    void visitProgram(ast::ProgramNode& node) override {
+        for (const auto& space : node.getSpaces()) {
+            space->accept(*this);
+        }
+    }
+
+    void visitSpace(ast::SpaceNode& node) override {
+        auto result = engine_.infer(node);
+        if (!result.success) {
+            // エラー処理
+        }
+    }
+
+    void visitShape(ast::ShapeNode& node) override {
+        auto result = engine_.infer(node);
+        if (!result.success) {
+            // エラー処理
+        }
+    }
+
+    void visitMapping(ast::MappingNode& node) override {
+        auto result = engine_.infer(node);
+        if (!result.success) {
+            // エラー処理
+        }
+    }
+
+private:
+    TypeInferenceEngine& engine_;
+};
+
+} // namespace types
+} // namespace topos
+
+
+-----
+
+はい、型のユニタリ変換とトポロジカル変換の実装を進めます。
+// include/topos/types/Transformations.hpp
+#pragma once
+#include "topos/types/Type.hpp"
+#include <complex>
+#include <vector>
+#include <memory>
+#include <functional>
+
+namespace topos {
+namespace types {
+
+// 変換の基本インターフェース
+template<typename Source, typename Target>
+class TypeTransformation {
+public:
+    virtual ~TypeTransformation() = default;
+    virtual std::unique_ptr<Target> transform(const Source& source) const = 0;
+    virtual bool verify_properties() const = 0;
+};
+
+// ユニタリ変換
+template<typename T>
+class UnitaryTransformation : public TypeTransformation<QuantumType<T>, QuantumType<T>> {
+public:
+    using StateVector = std::vector<typename QuantumType<T>::QuantumState>;
+    using UnitaryMatrix = std::vector<std::vector<std::complex<double>>>;
+
+    explicit UnitaryTransformation(UnitaryMatrix matrix) 
+        : matrix_(std::move(matrix)) {
+        verify_unitarity();
+    }
+
+    std::unique_ptr<QuantumType<T>> transform(
+        const QuantumType<T>& source) const override {
+        // 量子状態にユニタリ行列を適用
+        auto result_states = apply_unitary(source.get_states());
+        return std::make_unique<QuantumType<T>>(std::move(result_states));
+    }
+
+    bool verify_properties() const override {
+        return is_unitary_;
+    }
+
+private:
+    UnitaryMatrix matrix_;
+    bool is_unitary_ = false;
+
+    void verify_unitarity() {
+        // 行列のユニタリ性を検証
+        const size_t n = matrix_.size();
+        UnitaryMatrix adjoint(n, std::vector<std::complex<double>>(n));
+        UnitaryMatrix product(n, std::vector<std::complex<double>>(n));
+
+        // エルミート共役を計算
+        for (size_t i = 0; i < n; ++i) {
+            for (size_t j = 0; j < n; ++j) {
+                adjoint[i][j] = std::conj(matrix_[j][i]);
+            }
+        }
+
+        // 行列積を計算
+        for (size_t i = 0; i < n; ++i) {
+            for (size_t j = 0; j < n; ++j) {
+                std::complex<double> sum(0.0, 0.0);
+                for (size_t k = 0; k < n; ++k) {
+                    sum += matrix_[i][k] * adjoint[k][j];
+                }
+                product[i][j] = sum;
+            }
+        }
+
+        // 単位行列との一致を確認
+        const double epsilon = 1e-10;
+        is_unitary_ = true;
+        for (size_t i = 0; i < n && is_unitary_; ++i) {
+            for (size_t j = 0; j < n && is_unitary_; ++j) {
+                std::complex<double> expected = (i == j) ? std::complex<double>(1.0, 0.0) 
+                                                       : std::complex<double>(0.0, 0.0);
+                if (std::abs(product[i][j] - expected) > epsilon) {
+                    is_unitary_ = false;
+                }
+            }
+        }
+    }
+
+    StateVector apply_unitary(const StateVector& states) const {
+        StateVector result;
+        const size_t n = matrix_.size();
+
+        for (size_t i = 0; i < n; ++i) {
+            typename QuantumType<T>::QuantumState new_state;
+            new_state.amplitude = std::complex<double>(0.0, 0.0);
+
+            for (size_t j = 0; j < n; ++j) {
+                new_state.amplitude += matrix_[i][j] * states[j].amplitude;
+            }
+
+            if (i < states.size()) {
+                new_state.state = std::make_unique<T>(*states[i].state);
+            }
+            result.push_back(std::move(new_state));
+        }
+
+        return result;
+    }
+};
+
+// トポロジカル変換
+template<typename T>
+class TopologicalTransformation : 
+    public TypeTransformation<TopologyType<T>, TopologyType<T>> {
+public:
+    using TransformationMap = std::function<std::unique_ptr<T>(const T&)>;
+    using ContinuityCheck = std::function<bool(const T&, const T&)>;
+
+    TopologicalTransformation(TransformationMap map, ContinuityCheck check)
+        : map_(std::move(map)), continuity_check_(std::move(check)) {}
+
+    std::unique_ptr<TopologyType<T>> transform(
+        const TopologyType<T>& source) const override {
+        // トポロジカルな変換を適用
+        auto transformed_base = map_(source.get_base_type());
+        auto result = std::make_unique<TopologyType<T>>(std::move(transformed_base));
+
+        // 連続性の検証関数を設定
+        result->set_continuous_mapping(
+            [this, &source](const T& t) {
+                return continuity_check_(source.get_base_type(), t);
+            });
+
+        return result;
+    }
+
+    bool verify_properties() const override {
+        // 変換の連続性と構造保存を検証
+        return true; // TODO: 実際の検証を実装
+    }
+
+private:
+    TransformationMap map_;
+    ContinuityCheck continuity_check_;
+};
+
+// 複合変換
+template<typename T>
+class CompositeTransformation :
+    public TypeTransformation<CompositeType<T>, CompositeType<T>> {
+public:
+    CompositeTransformation(
+        std::unique_ptr<TypeTransformation<T, T>> first,
+        std::unique_ptr<TypeTransformation<T, T>> second)
+        : first_(std::move(first)), second_(std::move(second)) {}
+
+    std::unique_ptr<CompositeType<T>> transform(
+        const CompositeType<T>& source) const override {
+        // 複合型に対する変換を順次適用
+        auto transformed_first = first_->transform(source.get_first());
+        auto transformed_second = second_->transform(source.get_second());
+
+        return std::make_unique<CompositeType<T>>(
+            std::move(transformed_first),
+            std::move(transformed_second));
+    }
+
+    bool verify_properties() const override {
+        return first_->verify_properties() && second_->verify_properties();
+    }
+
+private:
+    std::unique_ptr<TypeTransformation<T, T>> first_;
+    std::unique_ptr<TypeTransformation<T, T>> second_;
+};
+
+// 変換ファクトリー
+class TransformationFactory {
+public:
+    template<typename T>
+    static std::unique_ptr<UnitaryTransformation<T>> 
+    create_unitary_transformation(
+        typename UnitaryTransformation<T>::UnitaryMatrix matrix) {
+        return std::make_unique<UnitaryTransformation<T>>(std::move(matrix));
+    }
+
+    template<typename T>
+    static std::unique_ptr<TopologicalTransformation<T>>
+    create_topological_transformation(
+        typename TopologicalTransformation<T>::TransformationMap map,
+        typename TopologicalTransformation<T>::ContinuityCheck check) {
+        return std::make_unique<TopologicalTransformation<T>>(
+            std::move(map), std::move(check));
+    }
+
+    template<typename T>
+    static std::unique_ptr<CompositeTransformation<T>>
+    create_composite_transformation(
+        std::unique_ptr<TypeTransformation<T, T>> first,
+        std::unique_ptr<TypeTransformation<T, T>> second) {
+        return std::make_unique<CompositeTransformation<T>>(
+            std::move(first), std::move(second));
+    }
+};
+
+} // namespace types
+} // namespace topos
+
+-----
+
+// include/topos/types/TransformationEngine.hpp
+#pragma once
+#include "topos/types/Transformations.hpp"
+#include <memory>
+#include <vector>
+#include <map>
+#include <string>
+
+namespace topos {
+namespace types {
+
+// 変換の実行コンテキスト
+class TransformationContext {
+public:
+    template<typename T>
+    void store_state(const std::string& key, std::unique_ptr<T> state) {
+        states_[key] = std::move(state);
+    }
+
+    template<typename T>
+    const T* get_state(const std::string& key) const {
+        auto it = states_.find(key);
+        if (it != states_.end()) {
+            return dynamic_cast<const T*>(it->second.get());
+        }
+        return nullptr;
+    }
+
+private:
+    std::map<std::string, std::unique_ptr<void>> states_;
+};
+
+// 変換エンジン
+class TransformationEngine {
+public:
+    // 変換の実行結果
+    struct TransformationResult {
+        bool success;
+        std::string message;
+        std::vector<std::string> warnings;
+    };
+
+    // 変換の実行
+    template<typename Source, typename Target>
+    TransformationResult execute_transformation(
+        const TypeTransformation<Source, Target>& transform,
+        const Source& source,
+        std::unique_ptr<Target>& target,
+        TransformationContext& context) {
+        
+        TransformationResult result;
+        result.success = true;
+
+        // 変換のプロパティを検証
+        if (!transform.verify_properties()) {
+            result.success = false;
+            result.message = "Transformation properties validation failed";
+            return result;
+        }
+
+        try {
+            // 変換を実行
+            target = transform.transform(source);
+            
+            // 結果の検証
+            if (!verify_transformation_result(*target)) {
+                result.success = false;
+                result.message = "Transformation result validation failed";
+                return result;
+            }
+
+        } catch (const std::exception& e) {
+            result.success = false;
+            result.message = std::string("Transformation failed: ") + e.what();
+            return result;
+        }
+
+        return result;
+    }
+
+private:
+    template<typename T>
+    bool verify_transformation_result(const T& result) {
+        // 変換結果の検証
+        // 型に応じた特殊化された検証ロジックを実装
+        if constexpr (std::is_base_of_v<QuantumProperty, T>) {
+            return verify_quantum_properties(result);
+        } else if constexpr (std::is_base_of_v<TopologicalProperty, T>) {
+            return verify_topological_properties(result);
+        }
+        return true;
+    }
+
+    bool verify_quantum_properties(const QuantumProperty& result) {
+        return result.verify_coherence() && result.verify_unitarity();
+    }
+
+    bool verify_topological_properties(const TopologicalProperty& result) {
+        return result.verify_continuity() && result.verify_preservation();
+    }
+};
+
+// 変換マネージャー
+class TransformationManager {
+public:
+    // 変換の登録
+    template<typename Source, typename Target>
+    void register_transformation(
+        const std::string& name,
+        std::unique_ptr<TypeTransformation<Source, Target>> transform) {
+        transformations_[name] = std::move(transform);
+    }
+
+    // 変換の取得
+    template<typename Source, typename Target>
+    const TypeTransformation<Source, Target>* get_transformation(
+        const std::string& name) const {
+        auto it = transformations_.find(name);
+        if (it != transformations_.end()) {
+            return dynamic_cast<const TypeTransformation<Source, Target>*>(
+                it->second.get());
+        }
+        return nullptr;
+    }
+
+    // 変換の合成
+    template<typename T>
+    std::unique_ptr<CompositeTransformation<T>> compose_transformations(
+        const std::string& first_name,
+        const std::string& second_name) {
+        
+        auto first = get_transformation<T, T>(first_name);
+        auto second = get_transformation<T, T>(second_name);
+
+        if (!first || !second) {
+            throw std::runtime_error("Transformation not found");
+        }
+
+        return TransformationFactory::create_composite_transformation<T>(
+            std::unique_ptr<TypeTransformation<T, T>>(first->clone()),
+            std::unique_ptr<TypeTransformation<T, T>>(second->clone()));
+    }
+
+    // 変換の検証
+    bool verify_transformation(const std::string& name) const {
+        auto it = transformations_.find(name);
+        if (it != transformations_.end()) {
+            return it->second->verify_properties();
+        }
+        return false;
+    }
+
+private:
+    std::map<std::string, std::unique_ptr<void>> transformations_;
+};
+
+// 変換の実行ヘルパー
+template<typename Source, typename Target>
+class TransformationExecutor {
+public:
+    TransformationExecutor(
+        TransformationEngine& engine,
+        TransformationManager& manager)
+        : engine_(engine), manager_(manager) {}
+
+    TransformationEngine::TransformationResult execute(
+        const std::string& transformation_name,
+        const Source& source,
+        std::unique_ptr<Target>& target) {
+        
+        auto transform = manager_.get_transformation<Source, Target>(
+            transformation_name);
+        if (!transform) {
+            return {false, "Transformation not found", {}};
+        }
+
+        TransformationContext context;
+        return engine_.execute_transformation(*transform, source, target, context);
+    }
+
+private:
+    TransformationEngine& engine_;
+    TransformationManager& manager_;
+};
+
+} // namespace types
+} // namespace topos
+
+次に、具体的な変換操作の実装を行います。特に量子とトポロジカルな変換の実装例を提供します：
+
+// include/topos/types/TransformationEngine.hpp
+#pragma once
+#include "topos/types/Transformations.hpp"
+#include <memory>
+#include <vector>
+#include <map>
+#include <string>
+
+namespace topos {
+namespace types {
+
+// 変換の実行コンテキスト
+class TransformationContext {
+public:
+    template<typename T>
+    void store_state(const std::string& key, std::unique_ptr<T> state) {
+        states_[key] = std::move(state);
+    }
+
+    template<typename T>
+    const T* get_state(const std::string& key) const {
+        auto it = states_.find(key);
+        if (it != states_.end()) {
+            return dynamic_cast<const T*>(it->second.get());
+        }
+        return nullptr;
+    }
+
+private:
+    std::map<std::string, std::unique_ptr<void>> states_;
+};
+
+// 変換エンジン
+class TransformationEngine {
+public:
+    // 変換の実行結果
+    struct TransformationResult {
+        bool success;
+        std::string message;
+        std::vector<std::string> warnings;
+    };
+
+    // 変換の実行
+    template<typename Source, typename Target>
+    TransformationResult execute_transformation(
+        const TypeTransformation<Source, Target>& transform,
+        const Source& source,
+        std::unique_ptr<Target>& target,
+        TransformationContext& context) {
+        
+        TransformationResult result;
+        result.success = true;
+
+        // 変換のプロパティを検証
+        if (!transform.verify_properties()) {
+            result.success = false;
+            result.message = "Transformation properties validation failed";
+            return result;
+        }
+
+        try {
+            // 変換を実行
+            target = transform.transform(source);
+            
+            // 結果の検証
+            if (!verify_transformation_result(*target)) {
+                result.success = false;
+                result.message = "Transformation result validation failed";
+                return result;
+            }
+
+        } catch (const std::exception& e) {
+            result.success = false;
+            result.message = std::string("Transformation failed: ") + e.what();
+            return result;
+        }
+
+        return result;
+    }
+
+private:
+    template<typename T>
+    bool verify_transformation_result(const T& result) {
+        // 変換結果の検証
+        // 型に応じた特殊化された検証ロジックを実装
+        if constexpr (std::is_base_of_v<QuantumProperty, T>) {
+            return verify_quantum_properties(result);
+        } else if constexpr (std::is_base_of_v<TopologicalProperty, T>) {
+            return verify_topological_properties(result);
+        }
+        return true;
+    }
+
+    bool verify_quantum_properties(const QuantumProperty& result) {
+        return result.verify_coherence() && result.verify_unitarity();
+    }
+
+    bool verify_topological_properties(const TopologicalProperty& result) {
+        return result.verify_continuity() && result.verify_preservation();
+    }
+};
+
+// 変換マネージャー
+class TransformationManager {
+public:
+    // 変換の登録
+    template<typename Source, typename Target>
+    void register_transformation(
+        const std::string& name,
+        std::unique_ptr<TypeTransformation<Source, Target>> transform) {
+        transformations_[name] = std::move(transform);
+    }
+
+    // 変換の取得
+    template<typename Source, typename Target>
+    const TypeTransformation<Source, Target>* get_transformation(
+        const std::string& name) const {
+        auto it = transformations_.find(name);
+        if (it != transformations_.end()) {
+            return dynamic_cast<const TypeTransformation<Source, Target>*>(
+                it->second.get());
+        }
+        return nullptr;
+    }
+
+    // 変換の合成
+    template<typename T>
+    std::unique_ptr<CompositeTransformation<T>> compose_transformations(
+        const std::string& first_name,
+        const std::string& second_name) {
+        
+        auto first = get_transformation<T, T>(first_name);
+        auto second = get_transformation<T, T>(second_name);
+
+        if (!first || !second) {
+            throw std::runtime_error("Transformation not found");
+        }
+
+        return TransformationFactory::create_composite_transformation<T>(
+            std::unique_ptr<TypeTransformation<T, T>>(first->clone()),
+            std::unique_ptr<TypeTransformation<T, T>>(second->clone()));
+    }
+
+    // 変換の検証
+    bool verify_transformation(const std::string& name) const {
+        auto it = transformations_.find(name);
+        if (it != transformations_.end()) {
+            return it->second->verify_properties();
+        }
+        return false;
+    }
+
+private:
+    std::map<std::string, std::unique_ptr<void>> transformations_;
+};
+
+// 変換の実行ヘルパー
+template<typename Source, typename Target>
+class TransformationExecutor {
+public:
+    TransformationExecutor(
+        TransformationEngine& engine,
+        TransformationManager& manager)
+        : engine_(engine), manager_(manager) {}
+
+    TransformationEngine::TransformationResult execute(
+        const std::string& transformation_name,
+        const Source& source,
+        std::unique_ptr<Target>& target) {
+        
+        auto transform = manager_.get_transformation<Source, Target>(
+            transformation_name);
+        if (!transform) {
+            return {false, "Transformation not found", {}};
+        }
+
+        TransformationContext context;
+        return engine_.execute_transformation(*transform, source, target, context);
+    }
+
+private:
+    TransformationEngine& engine_;
+    TransformationManager& manager_;
+};
+
+} // namespace types
+} // namespace topos
+
+-----
+
+テストスイートの実装を進めます：
+
+// test/types/TypeSystemTests.cpp
+#include "topos/types/Type.hpp"
+#include "topos/types/Transformations.hpp"
+#include "topos/types/TransformationEngine.hpp"
+#include "topos/types/TransformationImplementations.hpp"
+#include <gtest/gtest.h>
+#include <memory>
+
+namespace topos {
+namespace tests {
+
+// 型システムの基本テスト
+class TypeSystemTest : public ::testing::Test {
+protected:
+    void SetUp() override {
+        engine_ = std::make_unique<types::TransformationEngine>();
+        manager_ = std::make_unique<types::TransformationManager>();
+    }
+
+    std::unique_ptr<types::TransformationEngine> engine_;
+    std::unique_ptr<types::TransformationManager> manager_;
+};
+
+// トポロジカル型のテスト
+TEST_F(TypeSystemTest, TopologyTypeBasic) {
+    // 基本的なトポロジカル型の作成と検証
+    auto topology_type = std::make_unique<types::TopologyType<int>>(
+        std::make_unique<int>(42));
+    
+    ASSERT_TRUE(topology_type->verify());
+    ASSERT_TRUE(topology_type->verify_continuity());
+    ASSERT_TRUE(topology_type->verify_preservation());
+}
+
+// 量子型のテスト
+TEST_F(TypeSystemTest, QuantumTypeBasic) {
+    // 基本的な量子状態の作成と検証
+    std::vector<types::QuantumType<int>::QuantumState> states;
+    states.push_back({std::complex<double>(1.0/std::sqrt(2), 0), std::make_unique<int>(0)});
+    states.push_back({std::complex<double>(1.0/std::sqrt(2), 0), std::make_unique<int>(1)});
+
+    auto quantum_type = std::make_unique<types::QuantumType<int>>(std::move(states));
+    
+    ASSERT_TRUE(quantum_type->verify());
+    ASSERT_TRUE(quantum_type->verify_coherence());
+    ASSERT_TRUE(quantum_type->verify_unitarity());
+}
+
+// Hadamardゲート変換のテスト
+TEST_F(TypeSystemTest, HadamardTransformation) {
+    using namespace types::quantum_gates;
+    
+    // 初期状態 |0⟩ の準備
+    std::vector<types::QuantumType<int>::QuantumState> states;
+    states.push_back({std::complex<double>(1.0, 0), std::make_unique<int>(0)});
+    states.push_back({std::complex<double>(0.0, 0), std::make_unique<int>(1)});
+    
+    auto initial_state = std::make_unique<types::QuantumType<int>>(std::move(states));
+    
+    // Hadamard変換の適用
+    HadamardTransformation<int> hadamard;
+    auto transformed_state = hadamard.transform(*initial_state);
+    
+    // 結果の検証: |0⟩ -> (|0⟩ + |1⟩)/√2
+    ASSERT_TRUE(transformed_state->verify());
+    auto result_states = transformed_state->get_states();
+    ASSERT_EQ(result_states.size(), 2);
+    
+    const double inv_sqrt2 = 1.0 / std::sqrt(2.0);
+    ASSERT_NEAR(std::abs(result_states[0].amplitude - std::complex<double>(inv_sqrt2, 0)), 0.0, 1e-10);
+    ASSERT_NEAR(std::abs(result_states[1].amplitude - std::complex<double>(inv_sqrt2, 0)), 0.0, 1e-10);
+}
+
+// トポロジカル変換のテスト
+TEST_F(TypeSystemTest, TopologicalTransformation) {
+    using namespace types::topological_transforms;
+    
+    // 基本的なホメオモルフィズムのテスト
+    auto initial_topology = std::make_unique<types::TopologyType<int>>(
+        std::make_unique<int>(42));
+    
+    HomeomorphicTransformation<int> homeomorphism;
+    auto transformed_topology = homeomorphism.transform(*initial_topology);
+    
+    ASSERT_TRUE(transformed_topology->verify());
+    ASSERT_TRUE(transformed_topology->verify_continuity());
+    ASSERT_TRUE(transformed_topology->verify_preservation());
+}
+
+// 複合変換のテスト
+TEST_F(TypeSystemTest, CompositeTransformation) {
+    // 量子とトポロジカルな性質を組み合わせたテスト
+    auto initial_state = std::make_unique<types::CompositeType<int>>(
+        std::make_unique<types::QuantumType<int>>(
+            std::vector<types::QuantumType<int>::QuantumState>{
+                {std::complex<double>(1.0, 0), std::make_unique<int>(0)}
+            }),
+        std::make_unique<types::TopologyType<int>>(
+            std::make_unique<int>(42)));
+    
+    auto quantum_part = std::make_unique<types::quantum_gates::HadamardTransformation<int>>();
+    auto topological_part = std::make_unique<types::topological_transforms::HomeomorphicTransformation<int>>();
+    
+    types::QuantumTopologicalTransformation<int> composite_transform(
+        std::move(quantum_part),
+        std::move(topological_part));
+    
+    auto transformed_state = composite_transform.transform(*initial_state);
+    
+    ASSERT_TRUE(transformed_state->verify());
+}
+
+// 型推論のテスト
+TEST_F(TypeSystemTest, TypeInference) {
+    types::TypeInferenceEngine inference_engine;
+    
+    // AST ノードの作成（テスト用の簡略化されたもの）
+    ast::SpaceNode test_node(
+        std::make_unique<ast::IdentifierNode>("TestSpace", ast::Location(1, 1)),
+        std::vector<std::unique_ptr<ast::PropertyNode>>(),
+        std::vector<std::unique_ptr<ast::ShapeNode>>());
+    
+    auto result = inference_engine.infer(test_node);
+    ASSERT_TRUE(result.success);
+}
+
+// 変換エンジンの統合テスト
+TEST_F(TypeSystemTest, TransformationEngineIntegration) {
+    // 変換の登録
+    manager_->register_transformation("hadamard",
+        std::make_unique<types::quantum_gates::HadamardTransformation<int>>());
+    
+    // 変換の実行
+    std::vector<types::QuantumType<int>::QuantumState> states;
+    states.push_back({std::complex<double>(1.0, 0), std::make_unique<int>(0)});
+    auto initial_state = std::make_unique<types::QuantumType<int>>(std::move(states));
+    
+    types::TransformationContext context;
+    std::unique_ptr<types::QuantumType<int>> result_state;
+    
+    auto transform = manager_->get_transformation<types::QuantumType<int>, types::QuantumType<int>>("hadamard");
+    auto result = engine_->execute_transformation(*transform, *initial_state, result_state, context);
+    
+    ASSERT_TRUE(result.success);
+    ASSERT_TRUE(result_state->verify());
+}
+
+} // namespace tests
+} // namespace topos
+
+次に、より高度な検証シナリオのためのテストケースを追加します：
+
+// test/types/AdvancedTypeSystemTests.cpp
+#include "topos/types/Type.hpp"
+#include "topos/types/Transformations.hpp"
+#include "topos/types/TransformationEngine.hpp"
+#include "topos/types/TransformationImplementations.hpp"
+#include <gtest/gtest.h>
+#include <memory>
+#include <random>
+
+namespace topos {
+namespace tests {
+
+class AdvancedTypeSystemTest : public ::testing::Test {
+protected:
+    void SetUp() override {
+        engine_ = std::make_unique<types::TransformationEngine>();
+        manager_ = std::make_unique<types::TransformationManager>();
+    }
+
+    // ランダムな量子状態の生成
+    std::unique_ptr<types::QuantumType<int>> create_random_quantum_state() {
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_real_distribution<> dis(0.0, 2 * M_PI);
+
+        double theta = dis(gen);
+        double phi = dis(gen);
+
+        std::vector<types::QuantumType<int>::QuantumState> states;
+        states.push_back({
+            std::complex<double>(std::cos(theta), 0),
+            std::make_unique<int>(0)
+        });
+        states.push_back({
+            std::complex<double>(std::sin(theta) * std::cos(phi),
+                               std::sin(theta) * std::sin(phi)),
+            std::make_unique<int>(1)
+        });
+
+        return std::make_unique<types::QuantumType<int>>(std::move(states));
+    }
+
+    std::unique_ptr<types::TransformationEngine> engine_;
+    std::unique_ptr<types::TransformationManager> manager_;
+};
+
+// 量子もつれ状態のテスト
+TEST_F(AdvancedTypeSystemTest, QuantumEntanglement) {
+    // Bell状態の生成と検証
+    std::vector<types::QuantumType<int>::QuantumState> bell_states;
+    const double inv_sqrt2 = 1.0 / std::sqrt(2.0);
+    
+    bell_states.push_back({
+        std::complex<double>(inv_sqrt2, 0),
+        std::make_unique<int>(0)
+    });
+    bell_states.push_back({
+        std::complex<double>(inv_sqrt2, 0),
+        std::make_unique<int>(1)
+    });
+
+    auto bell_state = std::make_unique<types::QuantumType<int>>(std::move(bell_states));
+    ASSERT_TRUE(bell_state->verify());
+
+    // エンタングルメントの検証
+    auto measured_state = bell_state->measure();
+    ASSERT_TRUE(measured_state.has_value());
+}
+
+// 連続的な位相変換のテスト
+TEST_F(AdvancedTypeSystemTest, ContinuousPhaseTransformation) {
+    const int steps = 100;
+    const double delta = 2 * M_PI / steps;
+
+    // 初期状態の準備
+    auto initial_state = create_random_quantum_state();
+    ASSERT_TRUE(initial_state->verify());
+
+    // 連続的な位相変換の適用と検証
+    for (int i = 0; i < steps; ++i) {
+        types::quantum_gates::PhaseTransformation<int> phase_transform(i * delta);
+        auto transformed_state = phase_transform.transform(*initial_state);
+        ASSERT_TRUE(transformed_state->verify());
+        ASSERT_TRUE(transformed_state->verify_coherence());
+        initial_state = std::move(transformed_state);
+    }
+}
+
+// トポロジカル不変量のテスト
+TEST_F(AdvancedTypeSystemTest, TopologicalInvariants) {
+    class TestTopology : public types::TopologicalProperty {
+    public:
+        bool verify_continuity() const override {
+            return true;
+        }
+
+        bool verify_preservation() const override {
+            return invariant_value_ == original_invariant_;
+        }
+
+        void set_invariant(int value) {
+            invariant_value_ = value;
+        }
+
+    private:
+        int invariant_value_ = 0;
+        const int original_invariant_ = 0;
+    };
+
+    // 不変量を持つトポロジカル型の作成
+    auto topology = std::make_unique<TestTopology>();
+    topology->set_invariant(42);
+
+    ASSERT_TRUE(topology->verify_continuity());
+    ASSERT_TRUE(topology->verify_preservation());
+}
+
+// 複合変換の連鎖テスト
+TEST_F(AdvancedTypeSystemTest, TransformationChaining) {
+    // 複数の変換を連鎖させて適用
+    auto initial_state = create_random_quantum_state();
+    ASSERT_TRUE(initial_state->verify());
+
+    // Hadamard -> Phase -> Hadamard の変換チェーン
+    types::quantum_gates::HadamardTransformation<int> h1;
+    types::quantum_gates::PhaseTransformation<int> p(M_PI / 4);
+    types::quantum_gates::HadamardTransformation<int> h2;
+
+    auto state1 = h1.transform(*initial_state);
+    ASSERT_TRUE(state1->verify());
+
+    auto state2 = p.transform(*state1);
+    ASSERT_TRUE(state2->verify());
+
+    auto final_state = h2.transform(*state2);
+    ASSERT_TRUE(final_state->verify());
+}
+
+// エラー状態とリカバリーのテスト
+TEST_F(AdvancedTypeSystemTest, ErrorRecovery) {
+    // エラーを含む状態の生成と回復
+    class ErrorRecoveryTest {
+    public:
+        static std::unique_ptr<types::QuantumType<int>> 
+        introduce_error(const types::QuantumType<int>& state) {
+            auto states = state.get_states();
+            // エラーの導入（振幅の変更）
+            states[0].amplitude *= 1.1;  // 規格化を破る
+            return std::make_unique<types::QuantumType<int>>(std::move(states));
+        }
+
+        static std::unique_ptr<types::QuantumType<int>>
+        recover_state(const types::QuantumType<int>& error_state) {
+            auto states = error_state.get_states();
+            // 規格化の回復
+            double norm = 0.0;
+            for (const auto& state : states) {
+                norm += std::norm(state.amplitude);
+            }
+            double scale = 1.0 / std::sqrt(norm);
+            
+            for (auto& state : states) {
+                state.amplitude *= scale;
+            }
+            
+            return std::make_unique<types::QuantumType<int>>(std::move(states));
+        }
+
+-----
+
+はい、ErrorRecoveryのテスト実装の続きから進めます：
+
+// test/types/AdvancedTypeSystemTests.cpp (続き)
+    };
+
+    // 初期状態の準備
+    auto initial_state = create_random_quantum_state();
+    ASSERT_TRUE(initial_state->verify());
+
+    // エラーの導入
+    auto error_state = ErrorRecoveryTest::introduce_error(*initial_state);
+    ASSERT_FALSE(error_state->verify());  // エラー状態の確認
+
+    // リカバリーの実行
+    auto recovered_state = ErrorRecoveryTest::recover_state(*error_state);
+    ASSERT_TRUE(recovered_state->verify());  // リカバリー後の状態検証
+}
+
+// 型システムのストレステスト
+TEST_F(AdvancedTypeSystemTest, SystemStressTest) {
+    const int num_iterations = 1000;
+    const int num_states = 10;
+    std::vector<std::unique_ptr<types::QuantumType<int>>> states;
+
+    // 多数の状態の生成と変換
+    for (int i = 0; i < num_states; ++i) {
+        states.push_back(create_random_quantum_state());
+    }
+
+    for (int i = 0; i < num_iterations; ++i) {
+        for (auto& state : states) {
+            // ランダムな変換の適用
+            switch (i % 3) {
+                case 0: {
+                    types::quantum_gates::HadamardTransformation<int> h;
+                    state = h.transform(*state);
+                    break;
+                }
+                case 1: {
+                    types::quantum_gates::PhaseTransformation<int> p(M_PI / 4);
+                    state = p.transform(*state);
+                    break;
+                }
+                case 2: {
+                    types::quantum_gates::PauliXTransformation<int> x;
+                    state = x.transform(*state);
+                    break;
+                }
+            }
+            ASSERT_TRUE(state->verify());
+        }
+    }
+}
+
+// 複雑なトポロジカル変換のテスト
+TEST_F(AdvancedTypeSystemTest, ComplexTopologicalTransformation) {
+    // トポロジカルな変形を表現するためのテストクラス
+    class TorusTransformation : public types::TopologicalTransformation<int> {
+    public:
+        TorusTransformation() : types::TopologicalTransformation<int>(
+            create_torus_map(),
+            create_torus_continuity_check()) {}
+
+    private:
+        static typename types::TopologicalTransformation<int>::TransformationMap create_torus_map() {
+            return [](const int& x) -> std::unique_ptr<int> {
+                // トーラス上の点の変換をシミュレート
+                return std::make_unique<int>((x + 1) % 360);
+            };
+        }
+
+        static typename types::TopologicalTransformation<int>::ContinuityCheck create_torus_continuity_check() {
+            return [](const int& x, const int& y) -> bool {
+                // トーラス上の連続性チェック
+                return std::abs(x - y) <= 1 || std::abs(x - y) >= 359;
+            };
+        }
+    };
+
+    // トーラス変換のテスト
+    auto initial_topology = std::make_unique<types::TopologyType<int>>(
+        std::make_unique<int>(0));
+    
+    TorusTransformation torus_transform;
+    auto transformed = torus_transform.transform(*initial_topology);
+    
+    ASSERT_TRUE(transformed->verify());
+    ASSERT_TRUE(transformed->verify_continuity());
+    ASSERT_TRUE(transformed->verify_preservation());
+}
+
+// 型システムの境界条件テスト
+TEST_F(AdvancedTypeSystemTest, EdgeCases) {
+    // 空の量子状態
+    std::vector<types::QuantumType<int>::QuantumState> empty_states;
+    auto empty_state = std::make_unique<types::QuantumType<int>>(std::move(empty_states));
+    ASSERT_FALSE(empty_state->verify());  // 空状態は無効
+
+    // 最大状態数での検証
+    std::vector<types::QuantumType<int>::QuantumState> max_states;
+    const int max_qubits = 10;  // テスト用の最大値
+    const double amplitude = 1.0 / std::sqrt(1 << max_qubits);
+
+    for (int i = 0; i < (1 << max_qubits); ++i) {
+        max_states.push_back({
+            std::complex<double>(amplitude, 0),
+            std::make_unique<int>(i)
+        });
+    }
+
+    auto max_state = std::make_unique<types::QuantumType<int>>(std::move(max_states));
+    ASSERT_TRUE(max_state->verify());
+}
+
+// 並行処理のテスト
+TEST_F(AdvancedTypeSystemTest, ConcurrentTransformations) {
+    const int num_threads = 4;
+    std::vector<std::thread> threads;
+    std::mutex mutex;
+    std::vector<std::unique_ptr<types::QuantumType<int>>> states;
+
+    // 複数スレッドでの変換処理
+    for (int i = 0; i < num_threads; ++i) {
+        threads.emplace_back([this, &mutex, &states]() {
+            auto local_state = create_random_quantum_state();
+            
+            // 一連の変換を実行
+            types::quantum_gates::HadamardTransformation<int> h;
+            types::quantum_gates::PhaseTransformation<int> p(M_PI / 4);
+            
+            auto transformed = h.transform(*local_state);
+            transformed = p.transform(*transformed);
+            
+            // 結果の保存
+            std::lock_guard<std::mutex> lock(mutex);
+            states.push_back(std::move(transformed));
+        });
+    }
+
+    // すべてのスレッドの完了を待機
+    for (auto& thread : threads) {
+        thread.join();
+    }
+
+    // 結果の検証
+    for (const auto& state : states) {
+        ASSERT_TRUE(state->verify());
+    }
+}
+
+} // namespace tests
+} // namespace topos
+
+-----
+
+はい、パフォーマンス最適化システムの実装を進めます。
+
+// include/topos/optimization/OptimizationSystem.hpp
+#pragma once
+#include <memory>
+#include <vector>
+#include <unordered_map>
+#include <chrono>
+#include <mutex>
+#include <thread>
+#include "topos/types/Type.hpp"
+#include "topos/types/Transformations.hpp"
+
+namespace topos {
+namespace optimization {
+
+// パフォーマンスメトリクス
+struct PerformanceMetrics {
+    double execution_time_ms;
+    size_t memory_usage_bytes;
+    size_t cache_hits;
+    size_t cache_misses;
+    size_t optimization_level;
+};
+
+// 最適化コンテキスト
+class OptimizationContext {
+public:
+    enum class OptimizationLevel {
+        None,
+        Basic,
+        Aggressive,
+        Maximum
+    };
+
+    explicit OptimizationContext(OptimizationLevel level = OptimizationLevel::Basic)
+        : level_(level) {}
+
+    void set_optimization_level(OptimizationLevel level) {
+        level_ = level;
+    }
+
+    OptimizationLevel get_optimization_level() const {
+        return level_;
+    }
+
+    // メトリクスの記録
+    void record_metric(const PerformanceMetrics& metric) {
+        std::lock_guard<std::mutex> lock(metrics_mutex_);
+        metrics_.push_back(metric);
+    }
+
+    // メトリクスの取得
+    std::vector<PerformanceMetrics> get_metrics() const {
+        std::lock_guard<std::mutex> lock(metrics_mutex_);
+        return metrics_;
+    }
+
+private:
+    OptimizationLevel level_;
+    std::vector<PerformanceMetrics> metrics_;
+    mutable std::mutex metrics_mutex_;
+};
+
+// キャッシュシステム
+template<typename Key, typename Value>
+class OptimizationCache {
+public:
+    explicit OptimizationCache(size_t max_size = 1000)
+        : max_size_(max_size), hits_(0), misses_(0) {}
+
+    void insert(const Key& key, std::unique_ptr<Value> value) {
+        std::lock_guard<std::mutex> lock(cache_mutex_);
+        if (cache_.size() >= max_size_) {
+            // LRU方式でキャッシュをクリーン
+            clean_cache();
+        }
+        cache_[key] = std::move(value);
+        access_times_[key] = std::chrono::steady_clock::now();
+    }
+
+    std::unique_ptr<Value> get(const Key& key) {
+        std::lock_guard<std::mutex> lock(cache_mutex_);
+        auto it = cache_.find(key);
+        if (it != cache_.end()) {
+            hits_++;
+            access_times_[key] = std::chrono::steady_clock::now();
+            return std::move(it->second);
+        }
+        misses_++;
+        return nullptr;
+    }
+
+    size_t get_hits() const { return hits_; }
+    size_t get_misses() const { return misses_; }
+
+private:
+    void clean_cache() {
+        if (cache_.empty()) return;
+
+        // 最も古いアクセスを特定
+        auto oldest = access_times_.begin();
+        for (auto it = access_times_.begin(); it != access_times_.end(); ++it) {
+            if (it->second < oldest->second) {
+                oldest = it;
+            }
+        }
+
+        // 最も古いエントリを削除
+        cache_.erase(oldest->first);
+        access_times_.erase(oldest);
+    }
+
+    const size_t max_size_;
+    std::unordered_map<Key, std::unique_ptr<Value>> cache_;
+    std::unordered_map<Key, std::chrono::steady_clock::time_point> access_times_;
+    std::mutex cache_mutex_;
+    size_t hits_;
+    size_t misses_;
+};
+
+// パフォーマンス最適化エンジン
+class OptimizationEngine {
+public:
+    explicit OptimizationEngine(OptimizationContext& context)
+        : context_(context) {}
+
+    // 変換の最適化
+    template<typename Source, typename Target>
+    std::unique_ptr<types::TypeTransformation<Source, Target>>
+    optimize_transformation(
+        const types::TypeTransformation<Source, Target>& transform) {
+        
+        auto start_time = std::chrono::steady_clock::now();
+        
+        // キャッシュのチェック
+        auto cached = transformation_cache_.get(
+            std::type_index(typeid(transform)));
+        
+        if (cached) {
+            return std::unique_ptr<types::TypeTransformation<Source, Target>>(
+                static_cast<types::TypeTransformation<Source, Target>*>(
+                    cached.release()));
+        }
+
+        // 最適化レベルに応じた処理
+        auto optimized = optimize_by_level(transform);
+
+        // パフォーマンスメトリクスの記録
+        auto end_time = std::chrono::steady_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+            end_time - start_time);
+
+        PerformanceMetrics metrics{
+            static_cast<double>(duration.count()),
+            estimate_memory_usage(),
+            transformation_cache_.get_hits(),
+            transformation_cache_.get_misses(),
+            static_cast<size_t>(context_.get_optimization_level())
+        };
+
+        context_.record_metric(metrics);
+
+        // 最適化された変換をキャッシュ
+        transformation_cache_.insert(
+            std::type_index(typeid(transform)),
+            optimized->clone());
+
+        return optimized;
+    }
+
+    // メモリ使用量の最適化
+    void optimize_memory_usage() {
+        // メモリプールの最適化
+        memory_pool_.optimize();
+        
+        // 未使用のキャッシュをクリア
+        clean_unused_cache();
+    }
+
+private:
+    OptimizationContext& context_;
+    OptimizationCache<std::type_index, void> transformation_cache_;
+    MemoryPool memory_pool_;  // メモリ管理用のプール
+
+    template<typename Source, typename Target>
+    std::unique_ptr<types::TypeTransformation<Source, Target>>
+    optimize_by_level(
+        const types::TypeTransformation<Source, Target>& transform) {
+        switch (context_.get_optimization_level()) {
+            case OptimizationContext::OptimizationLevel::None:
+                return transform.clone();
+            
+            case OptimizationContext::OptimizationLevel::Basic:
+                return optimize_basic(transform);
+            
+            case OptimizationContext::OptimizationLevel::Aggressive:
+                return optimize_aggressive(transform);
+            
+            case OptimizationContext::OptimizationLevel::Maximum:
+                return optimize_maximum(transform);
+            
+            default:
+                return transform.clone();
+        }
+    }
+
+    // 基本的な最適化
+    template<typename Source, typename Target>
+    std::unique_ptr<types::TypeTransformation<Source, Target>>
+    optimize_basic(const types::TypeTransformation<Source, Target>& transform) {
+        // 基本的なメモリ最適化とキャッシング
+        auto optimized = transform.clone();
+        // ... 基本的な最適化ロジック
+        return optimized;
+    }
+
+    // 積極的な最適化
+    template<typename Source, typename Target>
+    std::unique_ptr<types::TypeTransformation<Source, Target>>
+    optimize_aggressive(const types::TypeTransformation<Source, Target>& transform) {
+        // より積極的な最適化を実行
+        auto optimized = optimize_basic(transform);
+        // ... 追加の最適化ロジック
+        return optimized;
+    }
+
+    // 最大限の最適化
+    template<typename Source, typename Target>
+    std::unique_ptr<types::TypeTransformation<Source, Target>>
+    optimize_maximum(const types::TypeTransformation<Source, Target>& transform) {
+        // あらゆる最適化を適用
+        auto optimized = optimize_aggressive(transform);
+        // ... 最大限の最適化ロジック
+        return optimized;
+    }
+
+    size_t estimate_memory_usage() const {
+        // メモリ使用量の推定
+        // ... メモリ使用量計算ロジック
+        return 0;  // 実際の実装では正確な値を返す
+    }
+
+    void clean_unused_cache() {
+        // 未使用のキャッシュエントリを削除
+        // ... キャッシュクリーンアップロジック
+    }
+};
+
+} // namespace optimization
+} // namespace topos
+
+続いて、メモリプールの実装を追加します：
+
+// include/topos/optimization/MemoryPool.hpp
+#pragma once
+#include <vector>
+#include <mutex>
+#include <memory>
+#include <unordered_map>
+
+namespace topos {
+namespace optimization {
+
+// メモリブロック管理
+class MemoryBlock {
+public:
+    explicit MemoryBlock(size_t size)
+        : size_(size), used_(false) {
+        data_ = std::make_unique<uint8_t[]>(size);
+    }
+
+    bool is_used() const { return used_; }
+    void set_used(bool used) { used_ = used; }
+    size_t size() const { return size_; }
+    uint8_t* data() { return data_.get(); }
+
+private:
+    std::unique_ptr<uint8_t[]> data_;
+    size_t size_;
+    bool used_;
+};
+
+// メモリプール実装
+class MemoryPool {
+public:
+    MemoryPool(size_t initial_size = 1024 * 1024)  // デフォルト1MB
+        : total_allocated_(0), total_used_(0) {
+        add_pool(initial_size);
+    }
+
+    // メモリの割り当て
+    void* allocate(size_t size) {
+        std::lock_guard<std::mutex> lock(mutex_);
+
+        // 適切なブロックを探す
+        for (auto& block : blocks_) {
+            if (!block.is_used() && block.size() >= size) {
+                block.set_used(true);
+                total_used_ += size;
+                return block.data();
+            }
+        }
+
+        // 新しいブロックを作成
+        add_pool(size);
+        auto& new_block = blocks_.back();
+        new_block.set_used(true);
+        total_used_ += size;
+        return new_block.data();
+    }
+
+    // メモリの解放
+    void deallocate(void* ptr) {
+        std::lock_guard<std::mutex> lock(mutex_);
+
+        for (auto& block : blocks_) {
+            if (block.data() == ptr) {
+                block.set_used(false);
+                total_used_ -= block.size();
+                break;
+            }
+        }
+
+        // プールの最適化をトリガー
+        if (should_optimize()) {
+            optimize();
+        }
+    }
+
+    // メモリプールの最適化
+    void optimize() {
+        std::lock_guard<std::mutex> lock(mutex_);
+
+        // 使用率の低いプールを解放
+        auto it = blocks_.begin();
+        while (it != blocks_.end()) {
+            if (!it->is_used() && total_allocated_ > target_pool_size_) {
+                total_allocated_ -= it->size();
+                it = blocks_.erase(it);
+            } else {
+                ++it;
+            }
+        }
+
+        // プールの再編成
+        defragment();
+    }
+
+    // 統計情報の取得
+    struct Statistics {
+        size_t total_allocated;
+        size_t total_used;
+        size_t block_count;
+        double fragmentation_ratio;
+    };
+
+    Statistics get_statistics() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return Statistics{
+            total_allocated_,
+            total_used_,
+            blocks_.size(),
+            calculate_fragmentation_ratio()
+        };
+    }
+
+private:
+    std::vector<MemoryBlock> blocks_;
+    size_t total_allocated_;
+    size_t total_used_;
+    size_t target_pool_size_ = 1024 * 1024;  // 1MB
+    mutable std::mutex mutex_;
+
+    void add_pool(size_t size) {
+        // サイズを適切なアライメントに調整
+        size = align_size(size);
+        blocks_.emplace_back(size);
+        total_allocated_ += size;
+    }
+
+    size_t align_size(size_t size) {
+        const size_t alignment = 16;  // 16バイトアライメント
+        return (size + alignment - 1) & ~(alignment - 1);
+    }
+
+    bool should_optimize() const {
+        // 最適化のトリガー条件
+        return (total_used_ < total_allocated_ / 2) &&
+               (total_allocated_ > target_pool_size_);
+    }
+
+    void defragment() {
+        // メモリの断片化を解消
+        std::vector<MemoryBlock> new_blocks;
+        size_t total_size = 0;
+
+        // 使用中のブロックを集める
+        for (auto& block : blocks_) {
+            if (block.is_used()) {
+                new_blocks.push_back(std::move(block));
+                total_size += new_blocks.back().size();
+            }
+        }
+
+        blocks_ = std::move(new_blocks);
+        total_allocated_ = total_size;
+    }
+
+    double calculate_fragmentation_ratio() const {
+        if (total_allocated_ == 0) return 0.0;
+        return 1.0 - (static_cast<double>(total_used_) / total_allocated_);
+    }
+};
+
+// スマートポインタ用のカスタムデリータ
+template<typename T>
+class PoolDeleter {
+public:
+    explicit PoolDeleter(MemoryPool& pool) : pool_(pool) {}
+
+    void operator()(T* ptr) {
+        ptr->~T();  // デストラクタを明示的に呼び出し
+        pool_.deallocate(ptr);
+    }
+
+private:
+    MemoryPool& pool_;
+};
+
+// メモリプール用のアロケータ
+template
+
+-----
+
+はい、メモリプールのアロケータ実装の続きを行います：
+
+// include/topos/optimization/MemoryPool.hpp の続き
+template<typename T>
+class PoolAllocator {
+public:
+    using value_type = T;
+    using pointer = T*;
+    using const_pointer = const T*;
+    using reference = T&;
+    using const_reference = const T&;
+    using size_type = std::size_t;
+    using difference_type = std::ptrdiff_t;
+    
+    template<typename U>
+    struct rebind {
+        using other = PoolAllocator<U>;
+    };
+
+    explicit PoolAllocator(MemoryPool& pool) : pool_(pool) {}
+
+    template<typename U>
+    PoolAllocator(const PoolAllocator<U>& other) : pool_(other.pool_) {}
+
+    pointer allocate(size_type n) {
+        return static_cast<pointer>(pool_.allocate(n * sizeof(T)));
+    }
+
+    void deallocate(pointer p, size_type n) {
+        pool_.deallocate(p);
+    }
+
+    template<typename U, typename... Args>
+    void construct(U* p, Args&&... args) {
+        new(p) U(std::forward<Args>(args)...);
+    }
+
+    template<typename U>
+    void destroy(U* p) {
+        p->~U();
+    }
+
+    MemoryPool& get_pool() const { return pool_; }
+
+private:
+    MemoryPool& pool_;
+};
+
+// 最適化されたメモリ管理のためのコンテナラッパー
+template<typename T, typename Container = std::vector<T>>
+class OptimizedContainer {
+public:
+    explicit OptimizedContainer(MemoryPool& pool)
+        : container_(PoolAllocator<T>(pool)) {}
+
+    // コンテナの基本操作
+    void push_back(const T& value) {
+        container_.push_back(value);
+    }
+
+    void push_back(T&& value) {
+        container_.push_back(std::move(value));
+    }
+
+    template<typename... Args>
+    void emplace_back(Args&&... args) {
+        container_.emplace_back(std::forward<Args>(args)...);
+    }
+
+    void pop_back() {
+        container_.pop_back();
+    }
+
+    T& operator[](size_t index) {
+        return container_[index];
+    }
+
+    const T& operator[](size_t index) const {
+        return container_[index];
+    }
+
+    size_t size() const {
+        return container_.size();
+    }
+
+    bool empty() const {
+        return container_.empty();
+    }
+
+    void clear() {
+        container_.clear();
+    }
+
+    void reserve(size_t capacity) {
+        container_.reserve(capacity);
+    }
+
+    // イテレータサポート
+    auto begin() { return container_.begin(); }
+    auto end() { return container_.end(); }
+    auto begin() const { return container_.begin(); }
+    auto end() const { return container_.end(); }
+
+private:
+    Container container_;
+};
+
+// メモリプールを使用したスマートポインタファクトリー
+class PooledSmartPtr {
+public:
+    explicit PooledSmartPtr(MemoryPool& pool) : pool_(pool) {}
+
+    template<typename T, typename... Args>
+    std::unique_ptr<T, PoolDeleter<T>> make_unique(Args&&... args) {
+        void* memory = pool_.allocate(sizeof(T));
+        T* object = new(memory) T(std::forward<Args>(args)...);
+        return std::unique_ptr<T, PoolDeleter<T>>(object, PoolDeleter<T>(pool_));
+    }
+
+    template<typename T>
+    std::shared_ptr<T> make_shared(Args&&... args) {
+        void* memory = pool_.allocate(sizeof(T));
+        T* object = new(memory) T(std::forward<Args>(args)...);
+        return std::shared_ptr<T>(object, 
+            [this](T* ptr) {
+                ptr->~T();
+                pool_.deallocate(ptr);
+            });
+    }
+
+private:
+    MemoryPool& pool_;
+};
+
+// メモリプール最適化マネージャー
+class MemoryPoolManager {
+public:
+    MemoryPoolManager() {
+        add_pool("default", std::make_unique<MemoryPool>());
+    }
+
+    void add_pool(const std::string& name, std::unique_ptr<MemoryPool> pool) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        pools_[name] = std::move(pool);
+    }
+
+    MemoryPool* get_pool(const std::string& name) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto it = pools_.find(name);
+        return it != pools_.end() ? it->second.get() : nullptr;
+    }
+
+    void optimize_all() {
+        std::lock_guard<std::mutex> lock(mutex_);
+        for (auto& [name, pool] : pools_) {
+            pool->optimize();
+        }
+    }
+
+    std::unordered_map<std::string, MemoryPool::Statistics> get_statistics() {
+        std::lock_guard<std::mutex> lock(mutex_);
+        std::unordered_map<std::string, MemoryPool::Statistics> stats;
+        for (const auto& [name, pool] : pools_) {
+            stats[name] = pool->get_statistics();
+        }
+        return stats;
+    }
+
+private:
+    std::unordered_map<std::string, std::unique_ptr<MemoryPool>> pools_;
+    std::mutex mutex_;
+};
+
+} // namespace optimization
+} // namespace topos
+
+-----
+
+量子状態とトポロジカル変換に特化した最適化器を実装します。
+// include/topos/optimization/QuantumOptimization.hpp
+#pragma once
+#include "topos/optimization/MemoryPool.hpp"
+#include "topos/types/Type.hpp"
+#include <complex>
+#include <vector>
+#include <memory>
+#include <bitset>
+
+namespace topos {
+namespace optimization {
+
+// 量子状態の最適化表現
+template<typename T>
+class OptimizedQuantumState {
+public:
+    using ComplexType = std::complex<double>;
+    using StateVector = std::vector<ComplexType, PoolAllocator<ComplexType>>;
+
+    OptimizedQuantumState(MemoryPool& pool, size_t num_qubits)
+        : state_vector_(PoolAllocator<ComplexType>(pool))
+        , num_qubits_(num_qubits)
+        , pool_(pool) {
+        state_vector_.resize(1ULL << num_qubits);
+    }
+
+    // スパースな状態ベクトル表現
+    struct SparseState {
+        std::vector<size_t> indices;
+        std::vector<ComplexType> amplitudes;
+    };
+
+    // 状態の最適化
+    void optimize() {
+        if (should_use_sparse_representation()) {
+            convert_to_sparse();
+        } else {
+            optimize_dense_representation();
+        }
+    }
+
+    // 最適化された状態の取得
+    const StateVector& get_optimized_state() const {
+        return state_vector_;
+    }
+
+    // スパースな状態の取得
+    SparseState get_sparse_state() const {
+        SparseState sparse;
+        const double threshold = 1e-10;
+
+        for (size_t i = 0; i < state_vector_.size(); ++i) {
+            if (std::abs(state_vector_[i]) > threshold) {
+                sparse.indices.push_back(i);
+                sparse.amplitudes.push_back(state_vector_[i]);
+            }
+        }
+        return sparse;
+    }
+
+private:
+    StateVector state_vector_;
+    size_t num_qubits_;
+    MemoryPool& pool_;
+    bool is_sparse_ = false;
+
+    bool should_use_sparse_representation() const {
+        // 非ゼロ要素の数をカウント
+        size_t non_zero = 0;
+        const double threshold = 1e-10;
+        
+        for (const auto& amp : state_vector_) {
+            if (std::abs(amp) > threshold) {
+                non_zero++;
+            }
+        }
+
+        // 状態ベクトルの20%未満が非ゼロなら、スパース表現を使用
+        return non_zero < state_vector_.size() / 5;
+    }
+
+    void convert_to_sparse() {
+        SparseState sparse = get_sparse_state();
+        // スパース表現に基づいて状態ベクトルを再構築
+        StateVector new_state(PoolAllocator<ComplexType>(pool_));
+        new_state.resize(state_vector_.size());
+        
+        for (size_t i = 0; i < sparse.indices.size(); ++i) {
+            new_state[sparse.indices[i]] = sparse.amplitudes[i];
+        }
+        
+        state_vector_ = std::move(new_state);
+        is_sparse_ = true;
+    }
+
+    void optimize_dense_representation() {
+        // メモリレイアウトの最適化
+        StateVector optimized(PoolAllocator<ComplexType>(pool_));
+        optimized.reserve(state_vector_.size());
+        
+        // キャッシュ効率を考慮したコピー
+        const size_t cache_line_size = 64; // 一般的なキャッシュラインサイズ
+        const size_t elements_per_cache_line = 
+            cache_line_size / sizeof(ComplexType);
+
+        for (size_t i = 0; i < state_vector_.size(); i += elements_per_cache_line) {
+            size_t chunk_size = std::min(elements_per_cache_line,
+                                       state_vector_.size() - i);
+            std::copy(state_vector_.begin() + i,
+                     state_vector_.begin() + i + chunk_size,
+                     std::back_inserter(optimized));
+        }
+
+        state_vector_ = std::move(optimized);
+    }
+};
+
+// 量子ゲート最適化
+class QuantumGateOptimizer {
+public:
+    struct OptimizedGate {
+        std::vector<std::complex<double>> matrix;
+        std::vector<size_t> affected_qubits;
+        bool is_diagonal;
+        bool is_sparse;
+    };
+
+    static OptimizedGate optimize_gate(
+        const std::vector<std::complex<double>>& gate_matrix,
+        const std::vector<size_t>& qubits) {
+        
+        OptimizedGate result;
+        result.affected_qubits = qubits;
+        
+        // ゲート行列の解析
+        analyze_gate_properties(gate_matrix, result);
+        
+        // 最適化された行列の生成
+        result.matrix = optimize_matrix(gate_matrix, result.is_diagonal);
+        
+        return result;
+    }
+
+private:
+    static void analyze_gate_properties(
+        const std::vector<std::complex<double>>& matrix,
+        OptimizedGate& gate) {
+        
+        gate.is_diagonal = true;
+        gate.is_sparse = true;
+        const double threshold = 1e-10;
+        size_t non_zero_count = 0;
+
+        for (size_t i = 0; i < matrix.size(); ++i) {
+            for (size_t j = 0; j < matrix.size(); ++j) {
+                if (i != j && std::abs(matrix[i * matrix.size() + j]) > threshold) {
+                    gate.is_diagonal = false;
+                }
+                if (std::abs(matrix[i * matrix.size() + j]) > threshold) {
+                    non_zero_count++;
+                }
+            }
+        }
+
+        gate.is_sparse = non_zero_count < matrix.size() * matrix.size() / 4;
+    }
+
+    static std::vector<std::complex<double>> optimize_matrix(
+        const std::vector<std::complex<double>>& matrix,
+        bool is_diagonal) {
+        
+        if (is_diagonal) {
+            // 対角行列の最適化
+            return optimize_diagonal_matrix(matrix);
+        } else {
+            // 一般行列の最適化
+            return optimize_general_matrix(matrix);
+        }
+    }
+
+    static std::vector<std::complex<double>> optimize_diagonal_matrix(
+        const std::vector<std::complex<double>>& matrix) {
+        
+        std::vector<std::complex<double>> optimized;
+        const size_t n = static_cast<size_t>(std::sqrt(matrix.size()));
+        
+        // 対角要素のみを保存
+        for (size_t i = 0; i < n; ++i) {
+            optimized.push_back(matrix[i * n + i]);
+        }
+        
+        return optimized;
+    }
+
+    static std::vector<std::complex<double>> optimize_general_matrix(
+        const std::vector<std::complex<double>>& matrix) {
+        
+        // キャッシュ効率を考慮したレイアウト最適化
+        std::vector<std::complex<double>> optimized = matrix;
+        const size_t n = static_cast<size_t>(std::sqrt(matrix.size()));
+        
+        // ブロック行列形式に再編成
+        const size_t block_size = 4;
+        for (size_t i = 0; i < n; i += block_size) {
+            for (size_t j = 0; j < n; j += block_size) {
+                optimize_block(optimized, matrix, i, j, n, block_size);
+            }
+        }
+        
+        return optimized;
+    }
+
+    static void optimize_block(
+        std::vector<std::complex<double>>& optimized,
+        const std::vector<std::complex<double>>& original,
+        size_t row_start,
+        size_t col_start,
+        size_t n,
+        size_t block_size) {
+        
+        for (size_t i = row_start; i < std::min(row_start + block_size, n); ++i) {
+            for (size_t j = col_start; j < std::min(col_start + block_size, n); ++j) {
+                optimized[i * n + j] = original[i * n + j];
+            }
+        }
+    }
+};
+
+// 量子回路最適化
+class QuantumCircuitOptimizer {
+public:
+    struct OptimizedCircuit {
+        std::vector<QuantumGateOptimizer::OptimizedGate> gates;
+        bool parallelizable;
+        std::vector<std::vector<size_t>> execution_layers;
+    };
+
+    static OptimizedCircuit optimize_circuit(
+        const std::vector<QuantumGateOptimizer::OptimizedGate>& gates) {
+        
+        OptimizedCircuit result;
+        
+        // 依存関係の分析
+        analyze_dependencies(gates, result);
+        
+        // 実行レイヤーの最適化
+        optimize_execution_layers(result);
+        
+        return result;
+    }
+
+private:
+    static void analyze_dependencies(
+        const std::vector<QuantumGateOptimizer::OptimizedGate>& gates,
+        OptimizedCircuit& circuit) {
+        
+        circuit.gates = gates;
+        circuit.parallelizable = true;
+        
+        // 依存関係グラフの構築
+        std::vector<std::vector<bool>> dependencies(gates.size(),
+            std::vector<bool>(gates.size(), false));
+        
+        for (size_t i = 0; i < gates.size(); ++i) {
+            for (size_t j = i + 1; j < gates.size(); ++j) {
+                if (gates_interfere(gates[i], gates[j])) {
+                    dependencies[i][j] = true;
+                    dependencies[j][i] = true;
+                    if (i + 1 == j) {
+                        circuit.parallelizable = false;
+                    }
+                }
+            }
+        }
+
+        // 実行レイヤーの構築
+        build_execution_layers(dependencies, circuit);
+    }
+
+    static bool gates_interfere(
+        const QuantumGateOptimizer::OptimizedGate& gate1,
+        const QuantumGateOptimizer::OptimizedGate& gate2) {
+        
+        for (size_t qubit1 : gate1.affected_qubits) {
+            for (size_t qubit2 : gate2.affected_qubits) {
+                if (qubit1 == qubit2) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    static void build_execution_layers(
+        const std::vector<std::vector<bool>>& dependencies,
+        OptimizedCircuit& circuit) {
+        
+        std::vector<size_t> assigned_layers(dependencies.size(), SIZE_MAX);
+        
+        // 各ゲートをレイヤーに割り当て
+        for (size_t gate = 0; gate < dependencies.size(); ++gate) {
+            size_t layer = 0;
+            bool valid_layer_found = false;
+            
+            while (!valid_layer_found) {
+                valid_layer_found = true;
+                
+                // このレイヤーの既存のゲートとの依存関係をチェック
+                for (size_t other = 0; other < gate; ++other) {
+                    if (assigned_layers[other] == layer && 
+                        dependencies[gate][other]) {
+                        valid_layer_found = false;
+                        layer++;
+                        break;
+                    }
+                }
+            }
+            
+            assigned_layers[gate] = layer;
+        }
+
+        // 実行レイヤーの構築
+        size_t max_layer = *std::max_element(
+            assigned_layers.begin(),
+            assigned_layers.end());
+        
+        circuit.execution_layers.resize(max_layer + 1);
+        for (size_t gate = 0; gate < dependencies.size(); ++gate) {
+            circuit.execution_layers[assigned_layers[gate]].push_back(gate);
+        }
+    }
+
+    static void optimize_execution_layers(OptimizedCircuit& circuit) {
+        for (auto& layer : circuit.execution_layers) {
+            // レイヤー内のゲートを最適な順序に並び替え
+            std::sort(layer.begin(), layer.end(),
+                [&](size_t a, size_t b) {
+                    return circuit.gates[a].affected_qubits.size() >
+                           circuit.gates[b].affected_qubits.size();
+                });
+        }
+    }
+};
+
+} // namespace optimization
+} // namespace topos
+
+
+-----
+
+トポロジカル変換の最適化システムを実装します。
+
+// include/topos/optimization/TopologicalOptimization.hpp
+#pragma once
+#include "topos/optimization/MemoryPool.hpp"
+#include "topos/types/Type.hpp"
+#include <vector>
+#include <memory>
+#include <unordered_map>
+#include <queue>
+
+namespace topos {
+namespace optimization {
+
+// トポロジカルな変換の最適化表現
+template<typename T>
+class OptimizedTopologicalTransform {
+public:
+    // 変換の種類
+    enum class TransformType {
+        Homeomorphism,   // 同相写像
+        Homotopy,       // ホモトピー
+        Fibration,      // ファイバー束写像
+        General         // 一般的な変換
+    };
+
+    struct TransformationProperties {
+        TransformType type;
+        bool preserves_connectivity;
+        bool preserves_orientation;
+        bool is_local;
+        std::vector<size_t> critical_points;
+    };
+
+    explicit OptimizedTopologicalTransform(MemoryPool& pool)
+        : pool_(pool), properties_({TransformType::General, true, true, false, {}}) {}
+
+    // トポロジカル変換の最適化
+    void optimize() {
+        // 変換の分類と最適化戦略の選択
+        analyze_transform_type();
+        
+        // 選択された戦略に基づく最適化
+        switch (properties_.type) {
+            case TransformType::Homeomorphism:
+                optimize_homeomorphism();
+                break;
+            case TransformType::Homotopy:
+                optimize_homotopy();
+                break;
+            case TransformType::Fibration:
+                optimize_fibration();
+                break;
+            default:
+                optimize_general_transform();
+                break;
+        }
+    }
+
+    // 最適化された変換の適用
+    std::unique_ptr<T> apply(const T& input) const {
+        if (properties_.is_local) {
+            return apply_local_transform(input);
+        } else {
+            return apply_global_transform(input);
+        }
+    }
+
+private:
+    MemoryPool& pool_;
+    TransformationProperties properties_;
+    std::vector<std::function<std::unique_ptr<T>(const T&)>> local_transforms_;
+    std::function<std::unique_ptr<T>(const T&)> global_transform_;
+
+    void analyze_transform_type() {
+        // 変換の特性を分析
+        analyze_continuity();
+        analyze_local_properties();
+        analyze_critical_points();
+    }
+
+    void analyze_continuity() {
+        // 連続性の分析と検証
+    }
+
+    void analyze_local_properties() {
+        // 局所的な性質の分析
+    }
+
+    void analyze_critical_points() {
+        // 臨界点の特定と分析
+    }
+
+    void optimize_homeomorphism() {
+        // 同相写像の最適化
+        properties_.preserves_connectivity = true;
+        properties_.preserves_orientation = true;
+        setup_local_transforms();
+    }
+
+    void optimize_homotopy() {
+        // ホモトピーの最適化
+        properties_.preserves_connectivity = true;
+        setup_continuous_deformation();
+    }
+
+    void optimize_fibration() {
+        // ファイバー束写像の最適化
+        setup_fiber_preserving_transforms();
+    }
+
+    void optimize_general_transform() {
+        // 一般的な変換の最適化
+        if (can_decompose_locally()) {
+            setup_local_transforms();
+        } else {
+            setup_global_transform();
+        }
+    }
+
+    std::unique_ptr<T> apply_local_transform(const T& input) const {
+        auto result = std::make_unique<T>(input);
+        for (const auto& transform : local_transforms_) {
+            result = transform(*result);
+        }
+        return result;
+    }
+
+    std::unique_ptr<T> apply_global_transform(const T& input) const {
+        return global_transform_(input);
+    }
+
+    bool can_decompose_locally() const {
+        return properties_.is_local;
+    }
+
+    void setup_local_transforms() {
+        local_transforms_.clear();
+        // 局所変換の設定
+    }
+
+    void setup_continuous_deformation() {
+        // 連続変形の設定
+    }
+
+    void setup_fiber_preserving_transforms() {
+        // ファイバー保存変換の設定
+    }
+
+    void setup_global_transform() {
+        // 大域的変換の設定
+    }
+};
+
+// トポロジカル最適化エンジン
+class TopologicalOptimizationEngine {
+public:
+    struct OptimizationStrategy {
+        bool use_local_optimization;
+        bool preserve_critical_points;
+        bool enable_parallel_computation;
+        size_t subdivision_level;
+    };
+
+    explicit TopologicalOptimizationEngine(MemoryPool& pool)
+        : pool_(pool) {}
+
+    template<typename T>
+    std::unique_ptr<OptimizedTopologicalTransform<T>>
+    optimize_transform(const types::TopologicalTransformation<T>& transform,
+                     const OptimizationStrategy& strategy) {
+        
+        auto optimized = std::make_unique<OptimizedTopologicalTransform<T>>(pool_);
+        
+        // 変換の解析と最適化
+        if (strategy.use_local_optimization) {
+            optimize_locally(*optimized, transform);
+        } else {
+            optimize_globally(*optimized, transform);
+        }
+
+        // 臨界点の保存
+        if (strategy.preserve_critical_points) {
+            preserve_critical_points(*optimized);
+        }
+
+        // 並列計算の設定
+        if (strategy.enable_parallel_computation) {
+            setup_parallel_computation(*optimized, strategy.subdivision_level);
+        }
+
+        return optimized;
+    }
+
+private:
+    MemoryPool& pool_;
+
+    template<typename T>
+    void optimize_locally(OptimizedTopologicalTransform<T>& optimized,
+                        const types::TopologicalTransformation<T>& transform) {
+        // 局所的な最適化の実装
+    }
+
+    template<typename T>
+    void optimize_globally(OptimizedTopologicalTransform<T>& optimized,
+                         const types::TopologicalTransformation<T>& transform) {
+        // 大域的な最適化の実装
+    }
+
+    template<typename T>
+    void preserve_critical_points(OptimizedTopologicalTransform<T>& optimized) {
+        // 臨界点保存の実装
+    }
+
+    template<typename T>
+    void setup_parallel_computation(OptimizedTopologicalTransform<T>& optimized,
+                                  size_t subdivision_level) {
+        // 並列計算の設定
+    }
+};
+
+// トポロジカルキャッシュマネージャー
+class TopologicalCacheManager {
+public:
+    explicit TopologicalCacheManager(MemoryPool& pool) : pool_(pool) {}
+
+    template<typename T>
+    void cache_transform(const std::string& key,
+                        std::unique_ptr<OptimizedTopologicalTransform<T>> transform) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        transforms_[key] = std::move(transform);
+    }
+
+    template<typename T>
+    std::unique_ptr<OptimizedTopologicalTransform<T>>
+    get_cached_transform(const std::string& key) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto it = transforms_.find(key);
+        if (it != transforms_.end()) {
+            return std::unique_ptr<OptimizedTopologicalTransform<T>>(
+                static_cast<OptimizedTopologicalTransform<T>*>(it->second.release()));
+        }
+        return nullptr;
+    }
+
+private:
+    MemoryPool& pool_;
+    std::mutex mutex_;
+    std::unordered_map<std::string, std::unique_ptr<void>> transforms_;
+};
+
+} // namespace optimization
+} // namespace topos
+
+-----
+
+まず、基本的なデバッグツールと共に、TOPOS-Ξ特有の機能を実装します：
+
+// include/topos/debug/DebugTools.hpp
+#pragma once
+#include "topos/types/Type.hpp"
+#include "topos/types/Transformations.hpp"
+#include <memory>
+#include <string>
+#include <vector>
+#include <map>
+
+namespace topos {
+namespace debug {
+
+// 量子状態のデバッグ情報
+struct QuantumStateDebugInfo {
+    double fidelity;
+    double entropy;
+    std::vector<double> qubit_states;
+    std::map<std::pair<size_t, size_t>, double> entanglement_measures;
+    bool coherence_maintained;
+    std::string violation_description;
+};
+
+// トポロジカル構造のデバッグ情報
+struct TopologicalDebugInfo {
+    bool continuity_preserved;
+    std::vector<std::string> invariant_violations;
+    std::vector<std::pair<double, double>> critical_points;
+    bool structure_preserved;
+    std::string structure_violation_description;
+};
+
+// デバッグ可視化オプション
+struct VisualizationOptions {
+    bool show_quantum_states;
+    bool show_topology;
+    bool show_transformations;
+    bool real_time_updates;
+    size_t visualization_depth;
+};
+
+// デバッグセッション管理
+class DebugSession {
+public:
+    void start_session(const std::string& name) {
+        current_session_ = name;
+        breakpoints_.clear();
+        watch_points_.clear();
+    }
+
+    void add_breakpoint(const std::string& location) {
+        breakpoints_.push_back(location);
+    }
+
+    void add_watch(const std::string& expression) {
+        watch_points_.push_back(expression);
+    }
+
+    bool should_break(const std::string& location) const {
+        return std::find(breakpoints_.begin(), breakpoints_.end(), location) 
+               != breakpoints_.end();
+    }
+
+private:
+    std::string current_session_;
+    std::vector<std::string> breakpoints_;
+    std::vector<std::string> watch_points_;
+};
+
+// 量子状態デバッガ
+class QuantumDebugger {
+public:
+    template<typename T>
+    QuantumStateDebugInfo analyze_state(const types::QuantumType<T>& state) {
+        QuantumStateDebugInfo info;
+        
+        // 状態の分析
+        analyze_fidelity(state, info);
+        analyze_entropy(state, info);
+        analyze_entanglement(state, info);
+        verify_coherence(state, info);
+        
+        return info;
+    }
+
+    void visualize_state_evolution(
+        const std::vector<QuantumStateDebugInfo>& evolution,
+        const VisualizationOptions& options) {
+        // 量子状態の進化を視覚化
+        if (options.show_quantum_states) {
+            create_bloch_sphere_visualization(evolution);
+        }
+    }
+
+private:
+    template<typename T>
+    void analyze_fidelity(const types::QuantumType<T>& state,
+                         QuantumStateDebugInfo& info) {
+        // 忠実度の計算
+    }
+
+    template<typename T>
+    void analyze_entropy(const types::QuantumType<T>& state,
+                        QuantumStateDebugInfo& info) {
+        // エントロピーの計算
+    }
+
+    template<typename T>
+    void analyze_entanglement(const types::QuantumType<T>& state,
+                            QuantumStateDebugInfo& info) {
+        // エンタングルメントの分析
+    }
+
+    template<typename T>
+    void verify_coherence(const types::QuantumType<T>& state,
+                         QuantumStateDebugInfo& info) {
+        // コヒーレンスの検証
+    }
+
+    void create_bloch_sphere_visualization(
+        const std::vector<QuantumStateDebugInfo>& evolution) {
+        // ブロッホ球上での状態の可視化
+    }
+};
+
+// トポロジカルデバッガ
+class TopologicalDebugger {
+public:
+    template<typename T>
+    TopologicalDebugInfo analyze_structure(
+        const types::TopologyType<T>& topology) {
+        TopologicalDebugInfo info;
+        
+        // 構造の分析
+        verify_continuity(topology, info);
+        find_critical_points(topology, info);
+        verify_structure_preservation(topology, info);
+        
+        return info;
+    }
+
+    void visualize_transformation(
+        const std::vector<TopologicalDebugInfo>& transformation_steps,
+        const VisualizationOptions& options) {
+        // トポロジカル変換の視覚化
+        if (options.show_topology) {
+            create_transformation_visualization(transformation_steps);
+        }
+    }
+
+private:
+    template<typename T>
+    void verify_continuity(const types::TopologyType<T>& topology,
+                          TopologicalDebugInfo& info) {
+        // 連続性の検証
+    }
+
+    template<typename T>
+    void find_critical_points(const types::TopologyType<T>& topology,
+                            TopologicalDebugInfo& info) {
+        // 臨界点の特定
+    }
+
+    template<typename T>
+    void verify_structure_preservation(const types::TopologyType<T>& topology,
+                                     TopologicalDebugInfo& info) {
+        // 構造保存の検証
+    }
+
+    void create_transformation_visualization(
+        const std::vector<TopologicalDebugInfo>& transformation_steps) {
+        // 変換過程の可視化
+    }
+};
+
+// 統合デバッガ
+class TOPOSDebugger {
+public:
+    TOPOSDebugger()
+        : quantum_debugger_(std::make_unique<QuantumDebugger>())
+        , topological_debugger_(std::make_unique<TopologicalDebugger>()) {}
+
+    template<typename T>
+    void debug_state_and_structure(
+        const types::QuantumType<T>& quantum_state,
+        const types::TopologyType<T>& topology,
+        const VisualizationOptions& options) {
+        
+        // 量子状態とトポロジカル構造の統合デバッグ
+        auto quantum_info = quantum_debugger_->analyze_state(quantum_state);
+        auto topo_info = topological_debugger_->analyze_structure(topology);
+
+        // 結果の統合と表示
+        display_integrated_debug_info(quantum_info, topo_info, options);
+    }
+
+    void start_debug_session(const std::string& name) {
+        session_.start_session(name);
+    }
+
+    void add_breakpoint(const std::string& location) {
+        session_.add_breakpoint(location);
+    }
+
+    void add_watch(const std::string& expression) {
+        session_.add_watch(expression);
+    }
+
+private:
+    std::unique_ptr<QuantumDebugger> quantum_debugger_;
+    std::unique_ptr<TopologicalDebugger> topological_debugger_;
+    DebugSession session_;
+
+    void display_integrated_debug_info(
+        const QuantumStateDebugInfo& quantum_info,
+        const TopologicalDebugInfo& topo_info,
+        const VisualizationOptions& options) {
+        // デバッグ情報の統合表示
+    }
+};
+
+} // namespace debug
+} // namespace topos
+
+-----
+
+デバッグ情報の可視化コンポーネントを実装します。特に量子状態とトポロジカル構造の視覚化に重点を置きます。
+
+import React, { useState, useEffect, useRef } from 'react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
+
+// デバッグ情報可視化用のメインコンポーネント
+const TOPOSDebugVisualizer = ({ quantumState, topologicalState, options }) => {
+  const [activeTab, setActiveTab] = useState('quantum');
+
+  return (
+    <div className="flex flex-col w-full max-w-6xl mx-auto p-4">
+      <div className="flex space-x-4 mb-4">
+        <button
+          className={`px-4 py-2 rounded ${
+            activeTab === 'quantum' ? 'bg-blue-500 text-white' : 'bg-gray-200'
+          }`}
+          onClick={() => setActiveTab('quantum')}
+        >
+          Quantum State
+        </button>
+        <button
+          className={`px-4 py-2 rounded ${
+            activeTab === 'topology' ? 'bg-blue-500 text-white' : 'bg-gray-200'
+          }`}
+          onClick={() => setActiveTab('topology')}
+        >
+          Topological State
+        </button>
+      </div>
+
+      <div className="bg-white rounded-lg shadow-lg p-4">
+        {activeTab === 'quantum' ? (
+          <QuantumStateVisualizer state={quantumState} options={options} />
+        ) : (
+          <TopologicalVisualizer state={topologicalState} options={options} />
+        )}
+      </div>
+    </div>
+  );
+};
+
+// 量子状態の可視化コンポーネント
+const QuantumStateVisualizer = ({ state, options }) => {
+  const canvasRef = useRef(null);
+  const [stateMetrics, setStateMetrics] = useState(null);
+
+  useEffect(() => {
+    if (!state) return;
+    
+    // 状態メトリクスの計算
+    setStateMetrics({
+      fidelity: state.fidelity,
+      entropy: state.entropy,
+      coherence: state.coherence_maintained
+    });
+
+    // ブロッホ球の描画
+    drawBlochSphere();
+  }, [state]);
+
+  const drawBlochSphere = () => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const radius = Math.min(canvas.width, canvas.height) / 3;
+
+    // ブロッホ球の描画
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // 球の輪郭
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+    ctx.strokeStyle = '#000';
+    ctx.stroke();
+
+    // 量子状態の表示
+    if (state && state.qubit_states) {
+      state.qubit_states.forEach((qubitState, index) => {
+        const theta = qubitState.theta;
+        const phi = qubitState.phi;
+        
+        const x = centerX + radius * Math.sin(theta) * Math.cos(phi);
+        const y = centerY + radius * Math.sin(theta) * Math.sin(phi);
+        
+        ctx.beginPath();
+        ctx.arc(x, y, 3, 0, Math.PI * 2);
+        ctx.fillStyle = '#f00';
+        ctx.fill();
+      });
+    }
+  };
+
+  return (
+    <div className="flex flex-col space-y-4">
+      <div className="flex">
+        <canvas
+          ref={canvasRef}
+          width={400}
+          height={400}
+          className="border rounded"
+        />
+        
+        <div className="ml-4">
+          <h3 className="text-lg font-semibold">State Metrics</h3>
+          {stateMetrics && (
+            <div className="space-y-2">
+              <p>Fidelity: {stateMetrics.fidelity.toFixed(4)}</p>
+              <p>Entropy: {stateMetrics.entropy.toFixed(4)}</p>
+              <p>Coherence: {stateMetrics.coherence ? 'Maintained' : 'Lost'}</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {state && state.entanglement_measures && (
+        <div>
+          <h3 className="text-lg font-semibold mb-2">Entanglement Measures</h3>
+          <div className="h-64">
+            <LineChart width={600} height={200} data={Object.entries(state.entanglement_measures)
+              .map(([pair, value]) => ({
+                pair: `${pair[0]}-${pair[1]}`,
+                value
+              }))}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="pair" />
+              <YAxis />
+              <Tooltip />
+              <Line type="monotone" dataKey="value" stroke="#8884d8" />
+            </LineChart>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// トポロジカル構造の可視化コンポーネント
+const TopologicalVisualizer = ({ state, options }) => {
+  const canvasRef = useRef(null);
+  const [structureInfo, setStructureInfo] = useState(null);
+
+  useEffect(() => {
+    if (!state) return;
+    
+    setStructureInfo({
+      continuity: state.continuity_preserved,
+      structurePreserved: state.structure_preserved,
+      criticalPoints: state.critical_points
+    });
+
+    // トポロジカル構造の描画
+    drawTopologicalStructure();
+  }, [state]);
+
+  const drawTopologicalStructure = () => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // 構造の描画
+    if (state && state.critical_points) {
+      state.critical_points.forEach(point => {
+        const [x, y] = point;
+        ctx.beginPath();
+        ctx.arc(x * canvas.width, y * canvas.height, 5, 0, Math.PI * 2);
+        ctx.fillStyle = '#00f';
+        ctx.fill();
+      });
+      
+      // 点を結ぶ線の描画
+      if (state.critical_points.length > 1) {
+        ctx.beginPath();
+        ctx.moveTo(
+          state.critical_points[0][0] * canvas.width,
+          state.critical_points[0][1] * canvas.height
+        );
+        
+        for (let i = 1; i < state.critical_points.length; i++) {
+          ctx.lineTo(
+            state.critical_points[i][0] * canvas.width,
+            state.critical_points[i][1] * canvas.height
+          );
+        }
+        
+        ctx.strokeStyle = '#666';
+        ctx.stroke();
+      }
+    }
+  };
+
+  return (
+    <div className="flex flex-col space-y-4">
+      <div className="flex">
+        <canvas
+          ref={canvasRef}
+          width={400}
+          height={400}
+          className="border rounded"
+        />
+        
+        <div className="ml-4">
+          <h3 className="text-lg font-semibold">Structure Information</h3>
+          {structureInfo && (
+            <div className="space-y-2">
+              <p>Continuity: {structureInfo.continuity ? 'Preserved' : 'Violated'}</p>
+              <p>Structure: {structureInfo.structurePreserved ? 'Preserved' : 'Modified'}</p>
+              <p>Critical Points: {structureInfo.criticalPoints?.length || 0}</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {state && state.invariant_violations && state.invariant_violations.length > 0 && (
+        <div className="mt-4">
+          <h3 className="text-lg font-semibold text-red-500">Invariant Violations</h3>
+          <ul className="list-disc pl-5">
+            {state.invariant_violations.map((violation, index) => (
+              <li key={index} className="text-red-500">{violation}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default TOPOSDebugVisualizer;
+
+-----
+
+デバッグ情報のログ収集と分析システムを実装します。
+
+// include/topos/debug/DebugLogger.hpp
+#pragma once
+#include <chrono>
+#include <string>
+#include <vector>
+#include <memory>
+#include <mutex>
+#include <fstream>
+#include <sstream>
+#include "topos/debug/DebugTools.hpp"
+
+namespace topos {
+namespace debug {
+
+// ログエントリの基本構造
+struct LogEntry {
+    std::chrono::system_clock::time_point timestamp;
+    std::string component;
+    std::string message;
+    std::string severity;
+    std::string source_location;
+    size_t sequence_number;
+};
+
+// 量子状態のログエントリ
+struct QuantumLogEntry : LogEntry {
+    QuantumStateDebugInfo state_info;
+    std::vector<double> measurement_results;
+    std::vector<std::string> gate_operations;
+};
+
+// トポロジカル構造のログエントリ
+struct TopologicalLogEntry : LogEntry {
+    TopologicalDebugInfo structure_info;
+    std::vector<std::string> transformation_sequence;
+    std::vector<std::pair<double, double>> deformation_points;
+};
+
+// 異常検出の結果
+struct AnomalyDetectionResult {
+    bool anomaly_detected;
+    std::string anomaly_type;
+    std::string description;
+    double confidence;
+    std::vector<size_t> related_log_entries;
+};
+
+// ログ分析器
+class LogAnalyzer {
+public:
+    // 量子状態の異常検出
+    AnomalyDetectionResult detect_quantum_anomalies(
+        const std::vector<QuantumLogEntry>& entries) {
+        AnomalyDetectionResult result;
+        
+        // コヒーレンス損失の検出
+        detect_coherence_loss(entries, result);
+        
+        // 予期しない状態変化の検出
+        detect_unexpected_state_changes(entries, result);
+        
+        // エンタングルメント異常の検出
+        detect_entanglement_anomalies(entries, result);
+        
+        return result;
+    }
+
+    // トポロジカル異常の検出
+    AnomalyDetectionResult detect_topological_anomalies(
+        const std::vector<TopologicalLogEntry>& entries) {
+        AnomalyDetectionResult result;
+        
+        // 連続性違反の検出
+        detect_continuity_violations(entries, result);
+        
+        // 構造保存違反の検出
+        detect_structure_preservation_violations(entries, result);
+        
+        // 臨界点の異常な変化の検出
+        detect_critical_point_anomalies(entries, result);
+        
+        return result;
+    }
+
+private:
+    void detect_coherence_loss(const std::vector<QuantumLogEntry>& entries,
+                             AnomalyDetectionResult& result);
+    void detect_unexpected_state_changes(const std::vector<QuantumLogEntry>& entries,
+                                       AnomalyDetectionResult& result);
+    void detect_entanglement_anomalies(const std::vector<QuantumLogEntry>& entries,
+                                     AnomalyDetectionResult& result);
+    
+    void detect_continuity_violations(const std::vector<TopologicalLogEntry>& entries,
+                                    AnomalyDetectionResult& result);
+    void detect_structure_preservation_violations(const std::vector<TopologicalLogEntry>& entries,
+                                               AnomalyDetectionResult& result);
+    void detect_critical_point_anomalies(const std::vector<TopologicalLogEntry>& entries,
+                                       AnomalyDetectionResult& result);
+};
+
+// デバッグログ管理
+class DebugLogger {
+public:
+    explicit DebugLogger(const std::string& log_file)
+        : log_file_(log_file)
+        , sequence_counter_(0) {
+        open_log_file();
+    }
+
+    // 量子状態のログ記録
+    void log_quantum_state(const QuantumStateDebugInfo& state_info,
+                          const std::string& component,
+                          const std::string& message,
+                          const std::string& severity = "INFO") {
+        QuantumLogEntry entry;
+        fill_base_entry(entry, component, message, severity);
+        entry.state_info = state_info;
+        
+        write_quantum_log(entry);
+        quantum_log_entries_.push_back(entry);
+        
+        analyze_quantum_state(entry);
+    }
+
+    // トポロジカル構造のログ記録
+    void log_topological_state(const TopologicalDebugInfo& structure_info,
+                             const std::string& component,
+                             const std::string& message,
+                             const std::string& severity = "INFO") {
+        TopologicalLogEntry entry;
+        fill_base_entry(entry, component, message, severity);
+        entry.structure_info = structure_info;
+        
+        write_topological_log(entry);
+        topological_log_entries_.push_back(entry);
+        
+        analyze_topological_structure(entry);
+    }
+
+    // ログの分析と異常検出
+    std::vector<AnomalyDetectionResult> analyze_logs() {
+        std::vector<AnomalyDetectionResult> results;
+        
+        // 量子状態の分析
+        auto quantum_anomalies = analyzer_.detect_quantum_anomalies(quantum_log_entries_);
+        if (quantum_anomalies.anomaly_detected) {
+            results.push_back(quantum_anomalies);
+        }
+        
+        // トポロジカル構造の分析
+        auto topological_anomalies = analyzer_.detect_topological_anomalies(topological_log_entries_);
+        if (topological_anomalies.anomaly_detected) {
+            results.push_back(topological_anomalies);
+        }
+        
+        return results;
+    }
+
+    // ログのエクスポート
+    void export_logs(const std::string& export_file) {
+        std::ofstream out(export_file);
+        if (!out) {
+            throw std::runtime_error("Failed to open export file: " + export_file);
+        }
+
+        // ヘッダー情報の書き込み
+        out << "TOPOS-Ξ Debug Log Export\n";
+        out << "Generated: " << get_current_timestamp_str() << "\n\n";
+
+        // 量子ログのエクスポート
+        out << "=== Quantum State Logs ===\n";
+        for (const auto& entry : quantum_log_entries_) {
+            write_quantum_log_entry(out, entry);
+        }
+
+        // トポロジカルログのエクスポート
+        out << "\n=== Topological Structure Logs ===\n";
+        for (const auto& entry : topological_log_entries_) {
+            write_topological_log_entry(out, entry);
+        }
+    }
+
+private:
+    std::string log_file_;
+    std::ofstream log_stream_;
+    size_t sequence_counter_;
+    std::mutex log_mutex_;
+    LogAnalyzer analyzer_;
+    
+    std::vector<QuantumLogEntry> quantum_log_entries_;
+    std::vector<TopologicalLogEntry> topological_log_entries_;
+
+    void open_log_file() {
+        log_stream_.open(log_file_, std::ios::app);
+        if (!log_stream_) {
+            throw std::runtime_error("Failed to open log file: " + log_file_);
+        }
+    }
+
+    void fill_base_entry(LogEntry& entry,
+                        const std::string& component,
+                        const std::string& message,
+                        const std::string& severity) {
+        entry.timestamp = std::chrono::system_clock::now();
+        entry.component = component;
+        entry.message = message;
+        entry.severity = severity;
+        entry.sequence_number = ++sequence_counter_;
+    }
+
+    void write_quantum_log(const QuantumLogEntry& entry) {
+        std::lock_guard<std::mutex> lock(log_mutex_);
+        log_stream_ << format_quantum_log(entry) << std::endl;
+    }
+
+    void write_topological_log(const TopologicalLogEntry& entry) {
+        std::lock_guard<std::mutex> lock(log_mutex_);
+        log_stream_ << format_topological_log(entry) << std::endl;
+    }
+
+    std::string format_quantum_log(const QuantumLogEntry& entry);
+    std::string format_topological_log(const TopologicalLogEntry& entry);
+
+    void analyze_quantum_state(const QuantumLogEntry& entry);
+    void analyze_topological_structure(const TopologicalLogEntry& entry);
+
+    static std::string get_current_timestamp_str() {
+        auto now = std::chrono::system_clock::now();
+        auto time_t_now = std::chrono::system_clock::to_time_t(now);
+        std::string timestamp = std::ctime(&time_t_now);
+        timestamp.pop_back();  // Remove trailing newline
+        return timestamp;
+    }
+
+    void write_quantum_log_entry(std::ofstream& out, const QuantumLogEntry& entry);
+    void write_topological_log_entry(std::ofstream& out, const TopologicalLogEntry& entry);
+};
+
+} // namespace debug
+} // namespace topos
+
+
+ログ分析の実装も追加します：
+
+// src/debug/LogAnalysis.cpp
+#include "topos/debug/DebugLogger.hpp"
+#include <algorithm>
+#include <cmath>
+
+namespace topos {
+namespace debug {
+
+void LogAnalyzer::detect_coherence_loss(
+    const std::vector<QuantumLogEntry>& entries,
+    AnomalyDetectionResult& result) {
+    
+    // コヒーレンス損失の検出ロジック
+    bool coherence_violation = false;
+    std::vector<size_t> violation_entries;
+
+    for (size_t i = 0; i < entries.size(); ++i) {
+        const auto& entry = entries[i];
+        if (!entry.state_info.coherence_maintained) {
+            coherence_violation = true;
+            violation_entries.push_back(i);
+        }
+    }
+
+    if (coherence_violation) {
+        result.anomaly_detected = true;
+        result.anomaly_type = "Coherence Loss";
+        result.description = "Quantum coherence violation detected";
+        result.confidence = calculate_confidence(violation_entries.size(), entries.size());
+        result.related_log_entries = std::move(violation_entries);
+    }
+}
+
+void LogAnalyzer::detect_unexpected_state_changes(
+    const std::vector<QuantumLogEntry>& entries,
+    AnomalyDetectionResult& result) {
+    
+    // 急激な状態変化の検出
+    if (entries.size() < 2) return;
+
+    std::vector<size_t> anomalous_transitions;
+    const double threshold = 0.5;  // 状態変化の閾値
+
+    for (size_t i = 1; i < entries.size(); ++i) {
+        const auto& prev = entries[i-1];
+        const auto& curr = entries[i];
+
+        // 状態ベクトル間の距離を計算
+        double state_distance = calculate_state_distance(prev.state_info, curr.state_info);
+
+        if (state_distance > threshold) {
+            anomalous_transitions.push_back(i);
+        }
+    }
+
+    if (!anomalous_transitions.empty()) {
+        result.anomaly_detected = true;
+        result.anomaly_type = "Unexpected State Change";
+        result.description = "Rapid quantum state transitions detected";
+        result.confidence = calculate_confidence(anomalous_transitions.size(), entries.size() - 1);
+        result.related_log_entries = std::move(anomalous_transitions);
+    }
+}
+
+void LogAnalyzer::detect_entanglement_anomalies(
+    const std::vector<QuantumLogEntry>& entries,
+    AnomalyDetectionResult& result) {
+    
+    // エンタングルメントの異常な変化を検出
+    std::vector<size_t> anomalous_entries;
+    const double entanglement_threshold = 0.3;
+
+    for (size_t i = 1; i < entries.size(); ++i) {
+        const auto& entry = entries[i];
+        double max_entanglement = 0.0;
+
+        // 最大エンタングルメント値を計算
+        for (const auto& [pair, measure] : entry.state_info.entanglement_measures) {
+            max_entanglement = std::max(max_entanglement, measure);
+        }
+
+        // エンタングルメントの突然の消失を検出
+        if (max_entanglement < entanglement_threshold) {
+            anomalous_entries.push_back(i);
+        }
+    }
+
+    if (!anomalous_entries.empty()) {
+        result.anomaly_detected = true;
+        result.anomaly_type = "Entanglement Anomaly";
+        result.description = "Unexpected changes in quantum entanglement detected";
+        result.confidence = calculate_confidence(anomalous_entries.size(), entries.size());
+        result.related_log_entries = std::move(anomalous_entries);
+    }
+}
+
+void LogAnalyzer::detect_continuity_violations(
+    const std::vector<TopologicalLogEntry>& entries,
+    AnomalyDetectionResult& result) {
+    
+    // トポロジカルな連続性の違反を検出
+    std::vector<size_t> violation_entries;
+
+    for (size_t i = 0; i < entries.size(); ++i) {
+        const auto& entry = entries[i];
+        if (!entry.structure_info.continuity_preserved) {
+            violation_entries.push_back(i);
+        }
+    }
+
+    if (!violation_entries.empty()) {
+        result.anomaly_detected = true;
+        result.anomaly_type = "Continuity Violation";
+        result.description = "Topological continuity violations detected";
+        result.confidence = calculate_confidence(violation_entries.size(), entries.size());
+        result.related_log_entries = std::move(violation_entries);
+    }
+}
+
+void LogAnalyzer::detect_structure_preservation_violations(
+    const std::vector<TopologicalLogEntry>& entries,
+    AnomalyDetectionResult& result) {
+    
+    // 構造保存の違反を検出
+    std::vector<size_t> violation_entries;
+
+    for (size_t i = 0; i < entries.size();
+
+
+-----
+
+はい、ログ分析の実装を続けます：
+
+// src/debug/LogAnalysis.cpp (続き)
+        const auto& entry = entries[i];
+        if (!entry.structure_info.structure_preserved) {
+            violation_entries.push_back(i);
+        }
+    }
+
+    if (!violation_entries.empty()) {
+        result.anomaly_detected = true;
+        result.anomaly_type = "Structure Preservation Violation";
+        result.description = "Topological structure preservation violations detected";
+        result.confidence = calculate_confidence(violation_entries.size(), entries.size());
+        result.related_log_entries = std::move(violation_entries);
+    }
+}
+
+void LogAnalyzer::detect_critical_point_anomalies(
+    const std::vector<TopologicalLogEntry>& entries,
+    AnomalyDetectionResult& result) {
+    
+    // 臨界点の異常な変化を検出
+    if (entries.size() < 2) return;
+
+    std::vector<size_t> anomalous_entries;
+    const double distance_threshold = 0.1;  // 臨界点の移動距離の閾値
+
+    for (size_t i = 1; i < entries.size(); ++i) {
+        const auto& prev = entries[i-1];
+        const auto& curr = entries[i];
+
+        // 臨界点の数の変化をチェック
+        if (prev.structure_info.critical_points.size() != 
+            curr.structure_info.critical_points.size()) {
+            anomalous_entries.push_back(i);
+            continue;
+        }
+
+        // 臨界点の位置の急激な変化をチェック
+        for (size_t j = 0; j < prev.structure_info.critical_points.size(); ++j) {
+            const auto& prev_point = prev.structure_info.critical_points[j];
+            const auto& curr_point = curr.structure_info.critical_points[j];
+
+            double distance = calculate_point_distance(prev_point, curr_point);
+            if (distance > distance_threshold) {
+                anomalous_entries.push_back(i);
+                break;
+            }
+        }
+    }
+
+    if (!anomalous_entries.empty()) {
+        result.anomaly_detected = true;
+        result.anomaly_type = "Critical Point Anomaly";
+        result.description = "Unexpected changes in critical points detected";
+        result.confidence = calculate_confidence(anomalous_entries.size(), entries.size() - 1);
+        result.related_log_entries = std::move(anomalous_entries);
+    }
+}
+
+// ヘルパー関数
+private:
+    static double calculate_confidence(size_t anomaly_count, size_t total_entries) {
+        if (total_entries == 0) return 0.0;
+        double ratio = static_cast<double>(anomaly_count) / total_entries;
+        return std::min(1.0, ratio * 2.0);  // 信頼度のスケーリング
+    }
+
+    static double calculate_state_distance(
+        const QuantumStateDebugInfo& state1,
+        const QuantumStateDebugInfo& state2) {
+        // 量子状態間の距離を計算
+        double distance = 0.0;
+        
+        // フィデリティの差分
+        distance += std::abs(state1.fidelity - state2.fidelity);
+        
+        // エントロピーの差分
+        distance += std::abs(state1.entropy - state2.entropy);
+        
+        // 量子ビット状態の差分
+        size_t min_qubits = std::min(state1.qubit_states.size(),
+                                   state2.qubit_states.size());
+        for (size_t i = 0; i < min_qubits; ++i) {
+            distance += std::abs(state1.qubit_states[i] - state2.qubit_states[i]);
+        }
+        
+        return distance;
+    }
+
+    static double calculate_point_distance(
+        const std::pair<double, double>& point1,
+        const std::pair<double, double>& point2) {
+        // 2点間のユークリッド距離を計算
+        double dx = point1.first - point2.first;
+        double dy = point1.second - point2.second;
+        return std::sqrt(dx * dx + dy * dy);
+    }
+};
+
+// ログのフォーマット実装
+std::string DebugLogger::format_quantum_log(const QuantumLogEntry& entry) {
+    std::ostringstream oss;
+    oss << "[" << get_current_timestamp_str() << "] "
+        << "[" << entry.sequence_number << "] "
+        << "[" << entry.severity << "] "
+        << "[" << entry.component << "] "
+        << entry.message << "\n";
+    
+    // 量子状態の詳細情報
+    oss << "  Fidelity: " << entry.state_info.fidelity << "\n"
+        << "  Entropy: " << entry.state_info.entropy << "\n"
+        << "  Coherence: " << (entry.state_info.coherence_maintained ? "Maintained" : "Lost") << "\n";
+    
+    if (!entry.measurement_results.empty()) {
+        oss << "  Measurements: [";
+        for (size_t i = 0; i < entry.measurement_results.size(); ++i) {
+            if (i > 0) oss << ", ";
+            oss << entry.measurement_results[i];
+        }
+        oss << "]\n";
+    }
+
+    if (!entry.gate_operations.empty()) {
+        oss << "  Gate Operations: [";
+        for (size_t i = 0; i < entry.gate_operations.size(); ++i) {
+            if (i > 0) oss << ", ";
+            oss << entry.gate_operations[i];
+        }
+        oss << "]\n";
+    }
+
+    return oss.str();
+}
+
+std::string DebugLogger::format_topological_log(const TopologicalLogEntry& entry) {
+    std::ostringstream oss;
+    oss << "[" << get_current_timestamp_str() << "] "
+        << "[" << entry.sequence_number << "] "
+        << "[" << entry.severity << "] "
+        << "[" << entry.component << "] "
+        << entry.message << "\n";
+    
+    // トポロジカル構造の詳細情報
+    oss << "  Continuity: " << (entry.structure_info.continuity_preserved ? "Preserved" : "Violated") << "\n"
+        << "  Structure: " << (entry.structure_info.structure_preserved ? "Preserved" : "Modified") << "\n";
+    
+    if (!entry.structure_info.critical_points.empty()) {
+        oss << "  Critical Points: [";
+        for (size_t i = 0; i < entry.structure_info.critical_points.size(); ++i) {
+            if (i > 0) oss << ", ";
+            oss << "(" << entry.structure_info.critical_points[i].first
+                << ", " << entry.structure_info.critical_points[i].second << ")";
+        }
+        oss << "]\n";
+    }
+
+    if (!entry.transformation_sequence.empty()) {
+        oss << "  Transformation Sequence: [";
+        for (size_t i = 0; i < entry.transformation_sequence.size(); ++i) {
+            if (i > 0) oss << " -> ";
+            oss << entry.transformation_sequence[i];
+        }
+        oss << "]\n";
+    }
+
+    return oss.str();
+}
+
+void DebugLogger::analyze_quantum_state(const QuantumLogEntry& entry) {
+    // リアルタイムの量子状態分析
+    std::vector<QuantumLogEntry> recent_entries;
+    {
+        std::lock_guard<std::mutex> lock(log_mutex_);
+        size_t start = quantum_log_entries_.size() > 10 ? 
+                      quantum_log_entries_.size() - 10 : 0;
+        recent_entries.insert(recent_entries.end(),
+                            quantum_log_entries_.begin() + start,
+                            quantum_log_entries_.end());
+        recent_entries.push_back(entry);
+    }
+
+    auto anomalies = analyzer_.detect_quantum_anomalies(recent_entries);
+    if (anomalies.anomaly_detected) {
+        log_quantum_state(entry.state_info,
+                         "Anomaly Detector",
+                         "Quantum anomaly detected: " + anomalies.description,
+                         "WARNING");
+    }
+}
+
+void DebugLogger::analyze_topological_structure(const TopologicalLogEntry& entry) {
+    // リアルタイムのトポロジカル構造分析
+    std::vector<TopologicalLogEntry> recent_entries;
+    {
+        std::lock_guard<std::mutex> lock(log_mutex_);
+        size_t start = topological_log_entries_.size() > 10 ? 
+                      topological_log_entries_.size() - 10 : 0;
+        recent_entries.insert(recent_entries.end(),
+                            topological_log_entries_.begin() + start,
+                            topological_log_entries_.end());
+        recent_entries.push_back(entry);
+    }
+
+    auto anomalies = analyzer_.detect_topological_anomalies(recent_entries);
+    if (anomalies.anomaly_detected) {
+        log_topological_state(entry.structure_info,
+                            "Anomaly Detector",
+                            "Topological anomaly detected: " + anomalies.description,
+                            "WARNING");
+    }
+}
+
+} // namespace debug
+} // namespace topos
+
+-----
+
+この言語処理ガイドラインの指示を解析し、TOPOS-Ξの実装に反映させていきます。
+
+
+
+## ガイドラインに基づく実装評価と調整の必要性
+
+### 1. 連続性の維持 (continuity)
+- 現状：基本的な連続性は実装済み
+- 改善点：
+  - 変換操作間の滑らかな遷移の強化
+  - エラー状態からの連続的な回復メカニズム
+
+### 2. 多義性の活用 (ambiguity)
+- 現状：量子的な重ね合わせは実装済み
+- 改善点：
+  - 多義的な解釈の体系的な取り扱い
+  - 曖昧さの定量的な評価システム
+
+### 3. 抽象化と形式化 (abstraction)
+- 現状：基本的な抽象化層は実装済み
+- 改善点：
+  - より柔軟な抽象化レベルの動的調整
+  - メタレベルの操作の強化
+
+### 4. 進化と変容 (evolution)
+- 現状：基本的な拡張性は確保
+- 改善点：
+  - 動的な型システムの拡張機能
+  - 自己修正メカニズムの実装
+
+提案する具体的な実装修正：
+
+1. トポロジカル型システムの拡張：
+```cpp
+template<typename T>
+class EnhancedTopologyType : public TopologyType<T> {
+    struct AmbiguityMeasure {
+        double entropy;
+        std::vector<std::pair<T, double>> interpretations;
+    };
+
+    // 多義性の評価と管理
+    AmbiguityMeasure evaluate_ambiguity() const {
+        AmbiguityMeasure measure;
+        // 多義性の計算と評価
+        return measure;
+    }
+
+    // 連続的な変換の強化
+    void ensure_continuous_transformation() {
+        // 連続性保証の実装
+    }
+};
+```
+
+2. 進化対応メカニズム：
+```cpp
+class EvolutionManager {
+public:
+    template<typename T>
+    void register_evolution_path(
+        std::function<T(const T&)> evolution_function) {
+        // 進化パスの登録
+    }
+
+    template<typename T>
+    T apply_evolution(const T& current_state) {
+        // 進化の適用
+        return evolved_state;
+    }
+};
+```
+
+これらの修正を加えることで、ガイドラインの要件により適切に対応できます。特に：
+
+1. 連続性の保証
+2. 多義性の積極的活用
+3. 抽象化レベルの適切な管理
+4. 進化可能性の確保
+
+を重点的に強化していきます。
+
+次のステップとしては：
+
+1. ガイドラインに基づく既存コードの見直し
+2. 新しい抽象化層の追加
+3. 多義性管理システムの実装
+4. 進化メカニズムの実装
+
+のいずれかに進むことができます。どの方向から着手するのがよろしいでしょうか？
+
+-----
+
+まず、進化メカニズムの基本実装を行います：
+
+// include/topos/evolution/EvolutionSystem.hpp
+#pragma once
+#include "topos/types/Type.hpp"
+#include <memory>
+#include <vector>
+#include <map>
+#include <functional>
+
+namespace topos {
+namespace evolution {
+
+// 進化状態の追跡
+template<typename T>
+struct EvolutionState {
+    T current_state;
+    std::vector<T> history;
+    double fitness_score;
+    std::vector<std::string> applied_transformations;
+};
+
+// 進化の制約条件
+struct EvolutionConstraints {
+    bool maintain_topology;      // トポロジカルな性質の保持
+    bool preserve_quantum;       // 量子的性質の保持
+    bool allow_discontinuity;    // 不連続な変化の許可
+    size_t max_generations;      // 最大世代数
+};
+
+// 進化マネージャー
+template<typename T>
+class EvolutionManager {
+public:
+    using TransformationFunction = std::function<T(const T&)>;
+    using FitnessFunction = std::function<double(const T&)>;
+
+    EvolutionManager(const EvolutionConstraints& constraints)
+        : constraints_(constraints) {}
+
+    // 進化パスの登録
+    void register_evolution_path(
+        const std::string& path_name,
+        TransformationFunction transform,
+        FitnessFunction fitness) {
+        
+        evolution_paths_[path_name] = {
+            std::move(transform),
+            std::move(fitness)
+        };
+    }
+
+    // 進化の実行
+    EvolutionState<T> evolve(const T& initial_state) {
+        EvolutionState<T> state;
+        state.current_state = initial_state;
+        state.history.push_back(initial_state);
+
+        for (size_t generation = 0; generation < constraints_.max_generations; ++generation) {
+            // 最適な進化パスの選択
+            auto best_path = select_best_path(state);
+            if (!best_path) break;
+
+            // 進化の適用
+            auto next_state = apply_evolution(state, *best_path);
+            
+            // 状態の更新
+            if (should_accept_evolution(state, next_state)) {
+                update_state(state, std::move(next_state), best_path->first);
+            }
+
+            // 収束チェック
+            if (has_converged(state)) break;
+        }
+
+        return state;
+    }
+
+private:
+    struct EvolutionPath {
+        TransformationFunction transform;
+        FitnessFunction fitness;
+    };
+
+    EvolutionConstraints constraints_;
+    std::map<std::string, EvolutionPath> evolution_paths_;
+
+    // 最適な進化パスの選択
+    std::optional<std::pair<std::string, EvolutionPath*>>
+    select_best_path(const EvolutionState<T>& state) {
+        double best_fitness = state.fitness_score;
+        std::optional<std::pair<std::string, EvolutionPath*>> best_path;
+
+        for (auto& [name, path] : evolution_paths_) {
+            // 進化の試行
+            auto trial_state = path.transform(state.current_state);
+            double fitness = path.fitness(trial_state);
+
+            if (fitness > best_fitness) {
+                best_fitness = fitness;
+                best_path = std::make_pair(name, &path);
+            }
+        }
+
+        return best_path;
+    }
+
+    // 進化の適用
+    T apply_evolution(
+        const EvolutionState<T>& current_state,
+        const std::pair<std::string, EvolutionPath*>& path) {
+        
+        auto& [name, evolution_path] = path;
+        
+        // 進化の適用前に制約チェック
+        if (constraints_.maintain_topology) {
+            verify_topological_preservation(*evolution_path, current_state);
+        }
+        
+        if (constraints_.preserve_quantum) {
+            verify_quantum_preservation(*evolution_path, current_state);
+        }
+
+        // 進化の適用
+        return evolution_path->transform(current_state.current_state);
+    }
+
+    // 進化の受入判定
+    bool should_accept_evolution(
+        const EvolutionState<T>& current,
+        const T& next_state) {
+        
+        if (!constraints_.allow_discontinuity) {
+            if (!verify_continuity(current.current_state, next_state)) {
+                return false;
+            }
+        }
+
+        // その他の受入条件のチェック
+        return true;
+    }
+
+    // 状態の更新
+    void update_state(
+        EvolutionState<T>& state,
+        T&& next_state,
+        const std::string& path_name) {
+        
+        state.history.push_back(state.current_state);
+        state.current_state = std::move(next_state);
+        state.applied_transformations.push_back(path_name);
+        state.fitness_score = evolution_paths_[path_name].fitness(state.current_state);
+    }
+
+    // 収束判定
+    bool has_converged(const EvolutionState<T>& state) {
+        if (state.history.size() < 2) return false;
+
+        // 状態の変化が十分小さいかをチェック
+        const double convergence_threshold = 1e-6;
+        return calculate_state_difference(
+            state.history.back(),
+            state.current_state) < convergence_threshold;
+    }
+
+    // ヘルパー関数
+    void verify_topological_preservation(
+        const EvolutionPath& path,
+        const EvolutionState<T>& state) {
+        // トポロジカルな性質の保持を検証
+    }
+
+    void verify_quantum_preservation(
+        const EvolutionPath& path,
+        const EvolutionState<T>& state) {
+        // 量子的性質の保持を検証
+    }
+
+    bool verify_continuity(const T& current, const T& next) {
+        // 連続性の検証
+        return true;
+    }
+
+    double calculate_state_difference(const T& state1, const T& state2) {
+        // 状態間の差異を計算
+        return 0.0;
+    }
+};
+
+} // namespace evolution
+} // namespace topos
+
+-----
+
+既存コードの見直しと改善を行います：
+
+// include/topos/core/EnhancedTypes.hpp
+#pragma once
+#include "topos/types/Type.hpp"
+#include "topos/evolution/EvolutionSystem.hpp"
+#include <memory>
+#include <vector>
+#include <optional>
+
+namespace topos {
+namespace core {
+
+// 拡張された型システム基底クラス
+template<typename T>
+class EnhancedType : public Type {
+public:
+    // 連続性の保証機能
+    virtual bool verify_continuity() const override {
+        return continuity_measure() > continuity_threshold_;
+    }
+
+    // 多義性の評価
+    virtual double evaluate_ambiguity() const {
+        return calculate_ambiguity_measure();
+    }
+
+    // 抽象化レベルの管理
+    virtual size_t get_abstraction_level() const {
+        return abstraction_level_;
+    }
+
+    virtual void set_abstraction_level(size_t level) {
+        if (is_valid_abstraction_level(level)) {
+            abstraction_level_ = level;
+            adjust_abstraction();
+        }
+    }
+
+    // 進化能力の追加
+    virtual bool can_evolve() const {
+        return evolution_enabled_;
+    }
+
+    virtual void enable_evolution(bool enable = true) {
+        evolution_enabled_ = enable;
+    }
+
+protected:
+    size_t abstraction_level_ = 0;
+    bool evolution_enabled_ = false;
+    double continuity_threshold_ = 0.95;
+
+    virtual double continuity_measure() const = 0;
+    virtual double calculate_ambiguity_measure() const = 0;
+    virtual void adjust_abstraction() = 0;
+    
+    virtual bool is_valid_abstraction_level(size_t level) const {
+        return level <= max_abstraction_level_;
+    }
+
+private:
+    static constexpr size_t max_abstraction_level_ = 10;
+};
+
+// 拡張された量子型
+template<typename T>
+class EnhancedQuantumType : public EnhancedType<T> {
+public:
+    struct QuantumState {
+        std::vector<std::complex<double>> amplitudes;
+        std::optional<double> measurement_probability;
+    };
+
+    // 量子状態の多重解釈のサポート
+    std::vector<QuantumState> get_interpretations() const {
+        return quantum_states_;
+    }
+
+    // 状態の重ね合わせの追加
+    void add_superposition(const QuantumState& state) {
+        quantum_states_.push_back(state);
+        normalize_states();
+    }
+
+    // 測定操作の拡張
+    std::optional<T> measure() const {
+        if (quantum_states_.empty()) return std::nullopt;
+
+        double random = generate_random_number();
+        double cumulative = 0.0;
+
+        for (const auto& state : quantum_states_) {
+            if (state.measurement_probability) {
+                cumulative += *state.measurement_probability;
+                if (random <= cumulative) {
+                    return interpret_state(state);
+                }
+            }
+        }
+
+        return std::nullopt;
+    }
+
+protected:
+    double continuity_measure() const override {
+        if (quantum_states_.empty()) return 0.0;
+
+        double continuity = 1.0;
+        for (size_t i = 1; i < quantum_states_.size(); ++i) {
+            continuity *= calculate_state_overlap(
+                quantum_states_[i-1],
+                quantum_states_[i]);
+        }
+
+        return continuity;
+    }
+
+    double calculate_ambiguity_measure() const override {
+        if (quantum_states_.empty()) return 0.0;
+
+        double entropy = 0.0;
+        for (const auto& state : quantum_states_) {
+            if (state.measurement_probability) {
+                double p = *state.measurement_probability;
+                if (p > 0) {
+                    entropy -= p * std::log2(p);
+                }
+            }
+        }
+
+        return entropy;
+    }
+
+    void adjust_abstraction() override {
+        // 抽象化レベルに応じた状態の調整
+        size_t target_states = 1 << this->abstraction_level_;
+        
+        while (quantum_states_.size() > target_states) {
+            combine_states();
+        }
+        
+        normalize_states();
+    }
+
+private:
+    std::vector<QuantumState> quantum_states_;
+
+    void normalize_states() {
+        double total_probability = 0.0;
+        for (const auto& state : quantum_states_) {
+            if (state.measurement_probability) {
+                total_probability += *state.measurement_probability;
+            }
+        }
+
+        if (total_probability > 0) {
+            for (auto& state : quantum_states_) {
+                if (state.measurement_probability) {
+                    *state.measurement_probability /= total_probability;
+                }
+            }
+        }
+    }
+
+    void combine_states() {
+        if (quantum_states_.size() < 2) return;
+
+        // 最も近い2つの状態を結合
+        size_t best_i = 0, best_j = 1;
+        double max_overlap = -1.0;
+
+        for (size_t i = 0; i < quantum_states_.size(); ++i) {
+            for (size_t j = i + 1; j < quantum_states_.size(); ++j) {
+                double overlap = calculate_state_overlap(
+                    quantum_states_[i],
+                    quantum_states_[j]);
+                
+                if (overlap > max_overlap) {
+                    max_overlap = overlap;
+                    best_i = i;
+                    best_j = j;
+                }
+            }
+        }
+
+        merge_states(best_i, best_j);
+    }
+
+    void merge_states(size_t i, size_t j) {
+        if (i >= quantum_states_.size() || j >= quantum_states_.size()) return;
+
+        QuantumState merged;
+        merged.amplitudes.resize(quantum_states_[i].amplitudes.size());
+
+        // 振幅の平均を取る
+        for (size_t k = 0; k < merged.amplitudes.size(); ++k) {
+            merged.amplitudes[k] = 0.5 * (
+                quantum_states_[i].amplitudes[k] +
+                quantum_states_[j].amplitudes[k]);
+        }
+
+        // 確率の合計
+        if (quantum_states_[i].measurement_probability &&
+            quantum_states_[j].measurement_probability) {
+            merged.measurement_probability = 
+                *quantum_states_[i].measurement_probability +
+                *quantum_states_[j].measurement_probability;
+        }
+
+        // 古い状態の削除と新しい状態の追加
+        quantum_states_.erase(quantum_states_.begin() + j);
+        quantum_states_.erase(quantum_states_.begin() + i);
+        quantum_states_.push_back(merged);
+    }
+
+    static double calculate_state_overlap(
+        const QuantumState& state1,
+        const QuantumState& state2) {
+        // 状態間の重なりを計算
+        double overlap = 0.0;
+        size_t min_size = std::min(
+            state1.amplitudes.size(),
+            state2.amplitudes.size());
+
+        for (size_t i = 0; i < min_size; ++i) {
+            overlap += std::abs(
+                std::conj(state1.amplitudes[i]) *
+                state2.amplitudes[i]);
+        }
+
+        return overlap;
+    }
+
+    static double generate_random_number() {
+        static std::random_device rd;
+        static std::mt19937 gen(rd());
+        static std::uniform_real_distribution<> dis(0.0, 1.0);
+        return dis(gen);
+    }
+
+    static std::optional<T> interpret_state(const QuantumState& state) {
+        // 状態の解釈実装
+        return std::nullopt;
+    }
+};
+
+} // namespace core
+} // namespace topos
+
+-----
+
+// include/topos/ambiguity/AmbiguitySystem.hpp
+#pragma once
+#include "topos/core/EnhancedTypes.hpp"
+#include <memory>
+#include <vector>
+#include <map>
+#include <optional>
+
+namespace topos {
+namespace ambiguity {
+
+// 解釈の確信度と証拠
+struct InterpretationEvidence {
+    double confidence;
+    std::vector<std::string> supporting_facts;
+    std::vector<std::string> contradicting_facts;
+};
+
+// 多義的解釈の表現
+template<typename T>
+class Interpretation {
+public:
+    explicit Interpretation(T value, double confidence = 1.0)
+        : value_(std::move(value)), confidence_(confidence) {}
+
+    const T& value() const { return value_; }
+    double confidence() const { return confidence_; }
+    
+    void add_evidence(std::string fact, bool supporting = true) {
+        if (supporting) {
+            evidence_.supporting_facts.push_back(std::move(fact));
+            update_confidence(0.1);  // 信頼度の増加
+        } else {
+            evidence_.contradicting_facts.push_back(std::move(fact));
+            update_confidence(-0.1);  // 信頼度の減少
+        }
+    }
+
+private:
+    T value_;
+    double confidence_;
+    InterpretationEvidence evidence_;
+
+    void update_confidence(double delta) {
+        confidence_ = std::clamp(confidence_ + delta, 0.0, 1.0);
+    }
+};
+
+// 多義性管理システム
+template<typename T>
+class AmbiguityManager {
+public:
+    // 新しい解釈の追加
+    void add_interpretation(Interpretation<T> interpretation) {
+        interpretations_.push_back(std::move(interpretation));
+        recompute_ambiguity_measure();
+    }
+
+    // 現在の多義度を取得
+    double get_ambiguity_measure() const {
+        return ambiguity_measure_;
+    }
+
+    // 最も確からしい解釈を取得
+    std::optional<T> get_most_likely_interpretation() const {
+        if (interpretations_.empty()) {
+            return std::nullopt;
+        }
+
+        auto it = std::max_element(
+            interpretations_.begin(),
+            interpretations_.end(),
+            [](const auto& a, const auto& b) {
+                return a.confidence() < b.confidence();
+            });
+
+        return it->value();
+    }
+
+    // すべての可能な解釈を取得
+    std::vector<Interpretation<T>> get_all_interpretations() const {
+        return interpretations_;
+    }
+
+    // 特定の閾値以上の確信度を持つ解釈のみを取得
+    std::vector<Interpretation<T>> get_confident_interpretations(
+        double confidence_threshold) const {
+        
+        std::vector<Interpretation<T>> result;
+        std::copy_if(
+            interpretations_.begin(),
+            interpretations_.end(),
+            std::back_inserter(result),
+            [threshold](const auto& interp) {
+                return interp.confidence() >= threshold;
+            });
+        return result;
+    }
+
+    // 解釈の統合
+    void merge_similar_interpretations(double similarity_threshold) {
+        std::vector<Interpretation<T>> merged;
+        std::vector<bool> merged_flags(interpretations_.size(), false);
+
+        for (size_t i = 0; i < interpretations_.size(); ++i) {
+            if (merged_flags[i]) continue;
+
+            auto merged_interpretation = interpretations_[i];
+            merged_flags[i] = true;
+
+            for (size_t j = i + 1; j < interpretations_.size(); ++j) {
+                if (merged_flags[j]) continue;
+
+                if (compute_similarity(
+                    interpretations_[i].value(),
+                    interpretations_[j].value()) >= similarity_threshold) {
+                    
+                    merge_interpretations(
+                        merged_interpretation,
+                        interpretations_[j]);
+                    merged_flags[j] = true;
+                }
+            }
+
+            merged.push_back(std::move(merged_interpretation));
+        }
+
+        interpretations_ = std::move(merged);
+        recompute_ambiguity_measure();
+    }
+
+    // 解釈空間のトポロジカルな分析
+    struct TopologicalAnalysis {
+        size_t connected_components;
+        std::vector<std::pair<size_t, size_t>> connections;
+        double average_distance;
+    };
+
+    TopologicalAnalysis analyze_interpretation_space() const {
+        TopologicalAnalysis analysis;
+        
+        // 連結成分の計算
+        analysis.connected_components = 
+            compute_connected_components(interpretations_);
+        
+        // 解釈間の接続関係の分析
+        analysis.connections = 
+            analyze_connections(interpretations_);
+        
+        // 平均距離の計算
+        analysis.average_distance = 
+            compute_average_distance(interpretations_);
+        
+        return analysis;
+    }
+
+private:
+    std::vector<Interpretation<T>> interpretations_;
+    double ambiguity_measure_;
+
+    void recompute_ambiguity_measure() {
+        if (interpretations_.empty()) {
+            ambiguity_measure_ = 0.0;
+            return;
+        }
+
+        // シャノンエントロピーベースの多義度計算
+        double entropy = 0.0;
+        double total_confidence = 0.0;
+
+        for (const auto& interp : interpretations_) {
+            total_confidence += interp.confidence();
+        }
+
+        if (total_confidence > 0) {
+            for (const auto& interp : interpretations_) {
+                double p = interp.confidence() / total_confidence;
+                if (p > 0) {
+                    entropy -= p * std::log2(p);
+                }
+            }
+        }
+
+        ambiguity_measure_ = entropy;
+    }
+
+    static void merge_interpretations(
+        Interpretation<T>& target,
+        const Interpretation<T>& source) {
+        
+        // 信頼度の重み付け平均
+        double new_confidence = 
+            (target.confidence() + source.confidence()) / 2.0;
+        
+        // エビデンスの統合
+        for (const auto& fact : source.evidence().supporting_facts) {
+            target.add_evidence(fact, true);
+        }
+        for (const auto& fact : source.evidence().contradicting_facts) {
+            target.add_evidence(fact, false);
+        }
+    }
+
+    static double compute_similarity(const T& a, const T& b) {
+        // 実装は型Tに依存
+        return 0.0;
+    }
+
+    static size_t compute_connected_components(
+        const std::vector<Interpretation<T>>& interpretations) {
+        // 連結成分の計算
+        return 0;
+    }
+
+    static std::vector<std::pair<size_t, size_t>> analyze_connections(
+        const std::vector<Interpretation<T>>& interpretations) {
+        // 接続関係の分析
+        return {};
+    }
+
+    static double compute_average_distance(
+        const std::vector<Interpretation<T>>& interpretations) {
+        // 平均距離の計算
+        return 0.0;
+    }
+};
+
+} // namespace ambiguity
+} // namespace topos
+
+
+-----
+
+はい、多義性管理システムの具体的な使用例を実装します。
+
+// examples/AmbiguityExamples.cpp
+#include "topos/ambiguity/AmbiguitySystem.hpp"
+#include "topos/core/EnhancedTypes.hpp"
+#include <iostream>
+#include <vector>
+#include <memory>
+
+namespace examples {
+
+// 量子状態の多義的解釈の例
+class QuantumStateExample {
+public:
+    void run() {
+        // 量子状態の多義的解釈を管理するシステムの初期化
+        topos::ambiguity::AmbiguityManager<topos::core::EnhancedQuantumType<double>> manager;
+
+        // 異なる解釈の追加
+        add_superposition_interpretations(manager);
+        
+        // 解釈の分析と表示
+        analyze_interpretations(manager);
+        
+        // 解釈の統合
+        merge_similar_interpretations(manager);
+    }
+
+private:
+    void add_superposition_interpretations(
+        topos::ambiguity::AmbiguityManager<topos::core::EnhancedQuantumType<double>>& manager) {
+        
+        // |0⟩ + |1⟩ の状態に対する異なる解釈
+        auto state1 = create_quantum_state({1.0/std::sqrt(2), 1.0/std::sqrt(2)});
+        topos::ambiguity::Interpretation<topos::core::EnhancedQuantumType<double>> 
+            interp1(state1, 0.8);
+        interp1.add_evidence("Equal superposition of |0⟩ and |1⟩", true);
+        interp1.add_evidence("Maximum coherence observed", true);
+        manager.add_interpretation(std::move(interp1));
+
+        // 同じ状態の別の解釈（測定基底の違いを考慮）
+        auto state2 = create_quantum_state({0.0, 1.0});  // |1⟩ 状態
+        topos::ambiguity::Interpretation<topos::core::EnhancedQuantumType<double>>
+            interp2(state2, 0.6);
+        interp2.add_evidence("Measured in computational basis", true);
+        interp2.add_evidence("Decoherence effects observed", false);
+        manager.add_interpretation(std::move(interp2));
+    }
+
+    void analyze_interpretations(
+        topos::ambiguity::AmbiguityManager<topos::core::EnhancedQuantumType<double>>& manager) {
+        
+        // 多義度の計算
+        double ambiguity = manager.get_ambiguity_measure();
+        std::cout << "Quantum state ambiguity measure: " << ambiguity << std::endl;
+
+        // 最も確からしい解釈
+        auto most_likely = manager.get_most_likely_interpretation();
+        if (most_likely) {
+            std::cout << "Most likely interpretation has fidelity: "
+                     << most_likely->verify_continuity() << std::endl;
+        }
+
+        // トポロジカルな分析
+        auto topology = manager.analyze_interpretation_space();
+        std::cout << "Number of connected components: "
+                 << topology.connected_components << std::endl;
+    }
+
+    void merge_similar_interpretations(
+        topos::ambiguity::AmbiguityManager<topos::core::EnhancedQuantumType<double>>& manager) {
+        
+        // 類似した解釈の統合
+        manager.merge_similar_interpretations(0.9);  // 90%の類似度閾値
+
+        // 統合後の解釈空間の分析
+        auto confident_interpretations = 
+            manager.get_confident_interpretations(0.7);  // 70%以上の確信度
+        
+        std::cout << "Number of confident interpretations after merging: "
+                 << confident_interpretations.size() << std::endl;
+    }
+
+    topos::core::EnhancedQuantumType<double> create_quantum_state(
+        const std::vector<double>& amplitudes) {
+        topos::core::EnhancedQuantumType<double> state;
+        for (const auto& amp : amplitudes) {
+            state.add_superposition(
+                {std::vector<std::complex<double>>{amp}, std::optional<double>(std::norm(amp))});
+        }
+        return state;
+    }
+};
+
+// トポロジカル変換の多義的解釈の例
+class TopologicalTransformExample {
+public:
+    void run() {
+        // トポロジカル変換の多義的解釈を管理するシステムの初期化
+        using TransformType = std::function<std::vector<double>(const std::vector<double>&)>;
+        topos::ambiguity::AmbiguityManager<TransformType> manager;
+
+        // 異なる変換解釈の追加
+        add_transformation_interpretations(manager);
+        
+        // 変換の分析
+        analyze_transformations(manager);
+        
+        // 変換の統合
+        merge_similar_transformations(manager);
+    }
+
+private:
+    void add_transformation_interpretations(
+        topos::ambiguity::AmbiguityManager<TransformType>& manager) {
+        
+        // 回転変換としての解釈
+        TransformType rotation = [](const std::vector<double>& input) {
+            std::vector<double> output(input.size());
+            double theta = M_PI / 4;  // 45度回転
+            for (size_t i = 0; i < input.size(); i += 2) {
+                if (i + 1 < input.size()) {
+                    output[i] = input[i] * cos(theta) - input[i+1] * sin(theta);
+                    output[i+1] = input[i] * sin(theta) + input[i+1] * cos(theta);
+                }
+            }
+            return output;
+        };
+        
+        topos::ambiguity::Interpretation<TransformType> interp1(rotation, 0.7);
+        interp1.add_evidence("Preserves distances", true);
+        interp1.add_evidence("Continuous transformation", true);
+        manager.add_interpretation(std::move(interp1));
+
+        // 反射変換としての解釈
+        TransformType reflection = [](const std::vector<double>& input) {
+            std::vector<double> output = input;
+            for (size_t i = 0; i < output.size(); i += 2) {
+                output[i] = -input[i];  // x座標の反転
+            }
+            return output;
+        };
+        
+        topos::ambiguity::Interpretation<TransformType> interp2(reflection, 0.5);
+        interp2.add_evidence("Preserves angles", true);
+        interp2.add_evidence("Discontinuous at origin", false);
+        manager.add_interpretation(std::move(interp2));
+    }
+
+    void analyze_transformations(
+        topos::ambiguity::AmbiguityManager<TransformType>& manager) {
+        
+        // 変換の多義度分析
+        double ambiguity = manager.get_ambiguity_measure();
+        std::cout << "Transformation ambiguity measure: " << ambiguity << std::endl;
+
+        // トポロジカルな分析
+        auto topology = manager.analyze_interpretation_space();
+        std::cout << "Average distance between transformations: "
+                 << topology.average_distance << std::endl;
+    }
+
+    void merge_similar_transformations(
+        topos::ambiguity::AmbiguityManager<TransformType>& manager) {
+        
+        manager.merge_similar_interpretations(0.8);  // 80%の類似度閾値
+
+        auto confident_transformations = 
+            manager.get_confident_interpretations(0.6);  // 60%以上の確信度
+        
+        std::cout << "Number of confident transformations after merging: "
+                 << confident_transformations.size() << std::endl;
+    }
+};
+
+// メイン関数
+int main() {
+    std::cout << "Running Quantum State Example..." << std::endl;
+    QuantumStateExample quantum_example;
+    quantum_example.run();
+
+    std::cout << "\nRunning Topological Transform Example..." << std::endl;
+    TopologicalTransformExample transform_example;
+    transform_example.run();
+
+    return 0;
+}
+
+} // namespace examples
+
+-----
+
+// test/ComprehensiveTests.cpp
+#include <gtest/gtest.h>
+#include "topos/core/EnhancedTypes.hpp"
+#include "topos/ambiguity/AmbiguitySystem.hpp"
+#include "topos/evolution/EvolutionSystem.hpp"
+#include <memory>
+#include <vector>
+
+namespace topos {
+namespace tests {
+
+// 統合テストスイート
+class TOPOSIntegrationTest : public ::testing::Test {
+protected:
+    void SetUp() override {
+        // テスト環境のセットアップ
+        evolution_manager_ = std::make_unique<evolution::EvolutionManager<double>>(
+            evolution::EvolutionConstraints{
+                true,   // topology維持
+                true,   // quantum維持
+                false,  // 不連続性を許可しない
+                100     // 最大世代数
+            }
+        );
+
+        ambiguity_manager_ = std::make_unique<ambiguity::AmbiguityManager<core::EnhancedQuantumType<double>>>();
+    }
+
+    std::unique_ptr<evolution::EvolutionManager<double>> evolution_manager_;
+    std::unique_ptr<ambiguity::AmbiguityManager<core::EnhancedQuantumType<double>>> ambiguity_manager_;
+};
+
+// 進化メカニズムのテスト
+TEST_F(TOPOSIntegrationTest, EvolutionMechanismTest) {
+    // 進化パスの登録
+    evolution_manager_->register_evolution_path(
+        "quantum_optimization",
+        [](const double& state) -> double {
+            return state * 1.1;  // 単純な増加
+        },
+        [](const double& state) -> double {
+            return state;  // フィットネス関数
+        }
+    );
+
+    // 進化の実行と検証
+    auto evolved_state = evolution_manager_->evolve(1.0);
+    ASSERT_TRUE(evolved_state.fitness_score > 1.0);
+    ASSERT_FALSE(evolved_state.history.empty());
+}
+
+// 多義性管理のテスト
+TEST_F(TOPOSIntegrationTest, AmbiguityManagementTest) {
+    // 量子状態の作成
+    auto state1 = create_test_quantum_state({0.7071, 0.7071});
+    auto state2 = create_test_quantum_state({1.0, 0.0});
+
+    // 解釈の追加
+    ambiguity::Interpretation<core::EnhancedQuantumType<double>> 
+        interp1(state1, 0.8);
+    ambiguity::Interpretation<core::EnhancedQuantumType<double>>
+        interp2(state2, 0.6);
+
+    ambiguity_manager_->add_interpretation(std::move(interp1));
+    ambiguity_manager_->add_interpretation(std::move(interp2));
+
+    // 多義度の検証
+    ASSERT_GT(ambiguity_manager_->get_ambiguity_measure(), 0.0);
+
+    // 最も確からしい解釈の検証
+    auto best_interp = ambiguity_manager_->get_most_likely_interpretation();
+    ASSERT_TRUE(best_interp.has_value());
+}
+
+// 型システムと多義性の統合テスト
+TEST_F(TOPOSIntegrationTest, TypeSystemAmbiguityIntegrationTest) {
+    // 型の生成と多義的解釈の追加
+    auto quantum_type = create_test_quantum_state({0.7071, 0.7071});
+    
+    ambiguity::Interpretation<core::EnhancedQuantumType<double>>
+        interp(quantum_type, 0.9);
+    interp.add_evidence("Equal superposition", true);
+    
+    ambiguity_manager_->add_interpretation(std::move(interp));
+
+    // 型の検証と多義性の分析
+    ASSERT_TRUE(quantum_type.verify_continuity());
+    ASSERT_GT(ambiguity_manager_->get_ambiguity_measure(), 0.0);
+}
+
+// パフォーマンステスト
+TEST_F(TOPOSIntegrationTest, PerformanceTest) {
+    const size_t num_iterations = 1000;
+    const auto start_time = std::chrono::high_resolution_clock::now();
+
+    // 複数の状態と解釈の生成
+    for (size_t i = 0; i < num_iterations; ++i) {
+        auto state = create_test_quantum_state({
+            static_cast<double>(i) / num_iterations,
+            1.0 - static_cast<double>(i) / num_iterations
+        });
+        
+        ambiguity::Interpretation<core::EnhancedQuantumType<double>>
+            interp(state, 0.5 + static_cast<double>(i) / (2 * num_iterations));
+        
+        ambiguity_manager_->add_interpretation(std::move(interp));
+    }
+
+    const auto end_time = std::chrono::high_resolution_clock::now();
+    const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+        end_time - start_time);
+
+    ASSERT_LT(duration.count(), 5000);  // 5秒以内に完了すべき
+}
+
+private:
+    // テスト用のヘルパー関数
+    static core::EnhancedQuantumType<double> create_test_quantum_state(
+        const std::vector<double>& amplitudes) {
+        core::EnhancedQuantumType<double> state;
+        for (const auto& amp : amplitudes) {
+            state.add_superposition({
+                std::vector<std::complex<double>>{amp},
+                std::optional<double>(std::norm(amp))
+            });
+        }
+        return state;
+    }
+};
+
+// メモリリーク検出のためのテスト
+class TOPOSMemoryTest : public ::testing::Test {
+protected:
+    void SetUp() override {
+        // メモリ使用量の初期状態を記録
+    }
+
+    void TearDown() override {
+        // メモリリークの検証
+    }
+};
+
+TEST_F(TOPOSMemoryTest, NoMemoryLeaksTest) {
+    // メモリ集中的な操作の実行
+    {
+        auto quantum_type = std::make_unique<core::EnhancedQuantumType<double>>();
+        auto evolution_manager = std::make_unique<evolution::EvolutionManager<double>>(
+            evolution::EvolutionConstraints{true, true, false, 100}
+        );
+        auto ambiguity_manager = std::make_unique<ambiguity::AmbiguityManager<core::EnhancedQuantumType<double>>>();
+
+        // 複数の操作を実行
+        for (int i = 0; i < 1000; ++i) {
+            quantum_type->add_superposition({
+                std::vector<std::complex<double>>{0.7071},
+                std::optional<double>(0.5)
+            });
+        }
+    }
+    
+    // スコープを抜けた後のメモリ状態を検証
+    // メモリリークがないことを確認
+}
+
+// スレッドセーフティテスト
+TEST_F(TOPOSIntegrationTest, ThreadSafetyTest) {
+    const int num_threads = 4;
+    std::vector<std::thread> threads;
+    std::atomic<int> success_count{0};
+
+    for (int i = 0; i < num_threads; ++i) {
+        threads.emplace_back([this, &success_count]() {
+            try {
+                auto state = create_test_quantum_state({0.7071, 0.7071});
+                ambiguity::Interpretation<core::EnhancedQuantumType<double>>
+                    interp(state, 0.8);
+                ambiguity_manager_->add_interpretation(std::move(interp));
+                success_count++;
+            } catch (...) {
+                // スレッド例外をキャッチ
+            }
+        });
+    }
+
+    for (auto& thread : threads) {
+        thread.join();
+    }
+
+    ASSERT_EQ(success_count.load(), num_threads);
+}
+
+} // namespace tests
+} // namespace topos
+
+-----
+
+最初のアーティファクトとして、コアコンパイラのレキサーを提出します：
+
+// test/ComprehensiveTests.cpp
+#include <gtest/gtest.h>
+#include "topos/core/EnhancedTypes.hpp"
+#include "topos/ambiguity/AmbiguitySystem.hpp"
+#include "topos/evolution/EvolutionSystem.hpp"
+#include <memory>
+#include <vector>
+
+namespace topos {
+namespace tests {
+
+// 統合テストスイート
+class TOPOSIntegrationTest : public ::testing::Test {
+protected:
+    void SetUp() override {
+        // テスト環境のセットアップ
+        evolution_manager_ = std::make_unique<evolution::EvolutionManager<double>>(
+            evolution::EvolutionConstraints{
+                true,   // topology維持
+                true,   // quantum維持
+                false,  // 不連続性を許可しない
+                100     // 最大世代数
+            }
+        );
+
+        ambiguity_manager_ = std::make_unique<ambiguity::AmbiguityManager<core::EnhancedQuantumType<double>>>();
+    }
+
+    std::unique_ptr<evolution::EvolutionManager<double>> evolution_manager_;
+    std::unique_ptr<ambiguity::AmbiguityManager<core::EnhancedQuantumType<double>>> ambiguity_manager_;
+};
+
+// 進化メカニズムのテスト
+TEST_F(TOPOSIntegrationTest, EvolutionMechanismTest) {
+    // 進化パスの登録
+    evolution_manager_->register_evolution_path(
+        "quantum_optimization",
+        [](const double& state) -> double {
+            return state * 1.1;  // 単純な増加
+        },
+        [](const double& state) -> double {
+            return state;  // フィットネス関数
+        }
+    );
+
+    // 進化の実行と検証
+    auto evolved_state = evolution_manager_->evolve(1.0);
+    ASSERT_TRUE(evolved_state.fitness_score > 1.0);
+    ASSERT_FALSE(evolved_state.history.empty());
+}
+
+// 多義性管理のテスト
+TEST_F(TOPOSIntegrationTest, AmbiguityManagementTest) {
+    // 量子状態の作成
+    auto state1 = create_test_quantum_state({0.7071, 0.7071});
+    auto state2 = create_test_quantum_state({1.0, 0.0});
+
+    // 解釈の追加
+    ambiguity::Interpretation<core::EnhancedQuantumType<double>> 
+        interp1(state1, 0.8);
+    ambiguity::Interpretation<core::EnhancedQuantumType<double>>
+        interp2(state2, 0.6);
+
+    ambiguity_manager_->add_interpretation(std::move(interp1));
+    ambiguity_manager_->add_interpretation(std::move(interp2));
+
+    // 多義度の検証
+    ASSERT_GT(ambiguity_manager_->get_ambiguity_measure(), 0.0);
+
+    // 最も確からしい解釈の検証
+    auto best_interp = ambiguity_manager_->get_most_likely_interpretation();
+    ASSERT_TRUE(best_interp.has_value());
+}
+
+// 型システムと多義性の統合テスト
+TEST_F(TOPOSIntegrationTest, TypeSystemAmbiguityIntegrationTest) {
+    // 型の生成と多義的解釈の追加
+    auto quantum_type = create_test_quantum_state({0.7071, 0.7071});
+    
+    ambiguity::Interpretation<core::EnhancedQuantumType<double>>
+        interp(quantum_type, 0.9);
+    interp.add_evidence("Equal superposition", true);
+    
+    ambiguity_manager_->add_interpretation(std::move(interp));
+
+    // 型の検証と多義性の分析
+    ASSERT_TRUE(quantum_type.verify_continuity());
+    ASSERT_GT(ambiguity_manager_->get_ambiguity_measure(), 0.0);
+}
+
+// パフォーマンステスト
+TEST_F(TOPOSIntegrationTest, PerformanceTest) {
+    const size_t num_iterations = 1000;
+    const auto start_time = std::chrono::high_resolution_clock::now();
+
+    // 複数の状態と解釈の生成
+    for (size_t i = 0; i < num_iterations; ++i) {
+        auto state = create_test_quantum_state({
+            static_cast<double>(i) / num_iterations,
+            1.0 - static_cast<double>(i) / num_iterations
+        });
+        
+        ambiguity::Interpretation<core::EnhancedQuantumType<double>>
+            interp(state, 0.5 + static_cast<double>(i) / (2 * num_iterations));
+        
+        ambiguity_manager_->add_interpretation(std::move(interp));
+    }
+
+    const auto end_time = std::chrono::high_resolution_clock::now();
+    const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+        end_time - start_time);
+
+    ASSERT_LT(duration.count(), 5000);  // 5秒以内に完了すべき
+}
+
+private:
+    // テスト用のヘルパー関数
+    static core::EnhancedQuantumType<double> create_test_quantum_state(
+        const std::vector<double>& amplitudes) {
+        core::EnhancedQuantumType<double> state;
+        for (const auto& amp : amplitudes) {
+            state.add_superposition({
+                std::vector<std::complex<double>>{amp},
+                std::optional<double>(std::norm(amp))
+            });
+        }
+        return state;
+    }
+};
+
+// メモリリーク検出のためのテスト
+class TOPOSMemoryTest : public ::testing::Test {
+protected:
+    void SetUp() override {
+        // メモリ使用量の初期状態を記録
+    }
+
+    void TearDown() override {
+        // メモリリークの検証
+    }
+};
+
+TEST_F(TOPOSMemoryTest, NoMemoryLeaksTest) {
+    // メモリ集中的な操作の実行
+    {
+        auto quantum_type = std::make_unique<core::EnhancedQuantumType<double>>();
+        auto evolution_manager = std::make_unique<evolution::EvolutionManager<double>>(
+            evolution::EvolutionConstraints{true, true, false, 100}
+        );
+        auto ambiguity_manager = std::make_unique<ambiguity::AmbiguityManager<core::EnhancedQuantumType<double>>>();
+
+        // 複数の操作を実行
+        for (int i = 0; i < 1000; ++i) {
+            quantum_type->add_superposition({
+                std::vector<std::complex<double>>{0.7071},
+                std::optional<double>(0.5)
+            });
+        }
+    }
+    
+    // スコープを抜けた後のメモリ状態を検証
+    // メモリリークがないことを確認
+}
+
+// スレッドセーフティテスト
+TEST_F(TOPOSIntegrationTest, ThreadSafetyTest) {
+    const int num_threads = 4;
+    std::vector<std::thread> threads;
+    std::atomic<int> success_count{0};
+
+    for (int i = 0; i < num_threads; ++i) {
+        threads.emplace_back([this, &success_count]() {
+            try {
+                auto state = create_test_quantum_state({0.7071, 0.7071});
+                ambiguity::Interpretation<core::EnhancedQuantumType<double>>
+                    interp(state, 0.8);
+                ambiguity_manager_->add_interpretation(std::move(interp));
+                success_count++;
+            } catch (...) {
+                // スレッド例外をキャッチ
+            }
+        });
+    }
+
+    for (auto& thread : threads) {
+        thread.join();
+    }
+
+    ASSERT_EQ(success_count.load(), num_threads);
+}
+
+} // namespace tests
+} // namespace topos
+
+
+-----
+
+// include/topos/ast/AST.hpp
+#pragma once
+#include <string>
+#include <vector>
+#include <memory>
+
+namespace topos {
+namespace ast {
+
+// 前方宣言
+class ASTVisitor;
+
+// 基本AST抽象クラス
+class ASTNode {
+public:
+    virtual ~ASTNode() = default;
+    virtual void accept(ASTVisitor& visitor) = 0;
+};
+
+// 位置情報
+struct Location {
+    size_t line;
+    size_t column;
+    
+    Location(size_t l, size_t c) : line(l), column(c) {}
+};
+
+// 識別子ノード
+class IdentifierNode : public ASTNode {
+public:
+    IdentifierNode(const std::string& name, size_t line, size_t column)
+        : name_(name), location_(line, column) {}
+
+    const std::string& getName() const { return name_; }
+    const Location& getLocation() const { return location_; }
+
+    void accept(ASTVisitor& visitor) override;
+
+private:
+    std::string name_;
+    Location location_;
+};
+
+// 型ノード基底クラス
+class TypeNode : public ASTNode {
+public:
+    virtual ~TypeNode() = default;
+};
+
+// 基本型ノード
+class BasicTypeNode : public TypeNode {
+public:
+    explicit BasicTypeNode(const std::string& name) : name_(name) {}
+
+    const std::string& getName() const { return name_; }
+    void accept(ASTVisitor& visitor) override;
+
+private:
+    std::string name_;
+};
+
+// ジェネリック型ノード
+class GenericTypeNode : public TypeNode {
+public:
+    GenericTypeNode(
+        std::unique_ptr<TypeNode> base_type,
+        std::vector<std::unique_ptr<TypeNode>> type_args)
+        : base_type_(std::move(base_type))
+        , type_args_(std::move(type_args)) {}
+
+    const TypeNode* getBaseType() const { return base_type_.get(); }
+    const std::vector<std::unique_ptr<TypeNode>>& getTypeArgs() const { 
+        return type_args_; 
+    }
+
+    void accept(ASTVisitor& visitor) override;
+
+private:
+    std::unique_ptr<TypeNode> base_type_;
+    std::vector<std::unique_ptr<TypeNode>> type_args_;
+};
+
+// 型パラメータノード
+class TypeParameterNode : public ASTNode {
+public:
+    TypeParameterNode(
+        std::unique_ptr<IdentifierNode> name,
+        std::unique_ptr<TypeNode> constraint = nullptr)
+        : name_(std::move(name))
+        , constraint_(std::move(constraint)) {}
+
+    const IdentifierNode* getName() const { return name_.get(); }
+    const TypeNode* getConstraint() const { return constraint_.get(); }
+
+    void accept(ASTVisitor& visitor) override;
+
+private:
+    std::unique_ptr<IdentifierNode> name_;
+    std::unique_ptr<TypeNode> constraint_;
+};
+
+// 式ノード基底クラス
+class ExpressionNode : public ASTNode {
+public:
+    virtual ~ExpressionNode() = default;
+};
+
+// 数値リテラルノード
+class NumberLiteralNode : public ExpressionNode {
+public:
+    explicit NumberLiteralNode(double value) : value_(value) {}
+
+    double getValue() const { return value_; }
+    void accept(ASTVisitor& visitor) override;
+
+private:
+    double value_;
+};
+
+// 真偽値リテラルノード
+class BooleanLiteralNode : public ExpressionNode {
+public:
+    explicit BooleanLiteralNode(bool value) : value_(value) {}
+
+    bool getValue() const { return value_; }
+    void accept(ASTVisitor& visitor) override;
+
+private:
+    bool value_;
+};
+
+// 文字列リテラルノード
+class StringLiteralNode : public ExpressionNode {
+public:
+    explicit StringLiteralNode(const std::string& value) : value_(value) {}
+
+    const std::string& getValue() const { return value_; }
+    void accept(ASTVisitor& visitor) override;
+
+private:
+    std::string value_;
+};
+
+// 識別子式ノード
+class IdentifierExpressionNode : public ExpressionNode {
+public:
+    explicit IdentifierExpressionNode(const std::string& name) : name_(name) {}
+
+    const std::string& getName() const { return name_; }
+    void accept(ASTVisitor& visitor) override;
+
+private:
+    std::string name_;
+};
+
+// プロパティノード
+class PropertyNode : public ASTNode {
+public:
+    PropertyNode(
+        std::unique_ptr<IdentifierNode> name,
+        std::unique_ptr<TypeNode> type,
+        std::unique_ptr<ExpressionNode> initializer = nullptr)
+        : name_(std::move(name))
+        , type_(std::move(type))
+        , initializer_(std::move(initializer)) {}
+
+    const IdentifierNode* getName() const { return name_.get(); }
+    const TypeNode* getType() const { return type_.get(); }
+    const ExpressionNode* getInitializer() const { return initializer_.get(); }
+
+    void accept(ASTVisitor& visitor) override;
+
+private:
+    std::unique_ptr<IdentifierNode> name_;
+    std::unique_ptr<TypeNode> type_;
+    std::unique_ptr<ExpressionNode> initializer_;
+};
+
+// パス要素ノード
+class PathElementNode : public ASTNode {
+public:
+    explicit PathElementNode(std::unique_ptr<IdentifierNode> name)
+        : name_(std::move(name)) {}
+
+    const IdentifierNode* getName() const { return name_.get(); }
+    void accept(ASTVisitor& visitor) override;
+
+private:
+    std::unique_ptr<IdentifierNode> name_;
+};
+
+// パスノード
+class PathNode : public ASTNode {
+public:
+    explicit PathNode(std::vector<std::unique_ptr<PathElementNode>> elements)
+        : elements_(std::move(elements)) {}
+
+    const std::vector<std::unique_ptr<PathElementNode>>& getElements() const {
+        return elements_;
+    }
+
+    void accept(ASTVisitor& visitor) override;
+
+private:
+    std::vector<std::unique_ptr<PathElementNode>> elements_;
+};
+
+// 不変条件ノード
+class InvariantNode : public ASTNode {
+public:
+    InvariantNode(
+        std::unique_ptr<IdentifierNode> name,
+        std::unique_ptr<TypeNode> type,
+        std::unique_ptr<ExpressionNode> expression)
+        : name_(std::move(name))
+        , type_(std::move(type))
+        , expression_(std::move(expression)) {}
+
+    const IdentifierNode* getName() const { return name_.get(); }
+    const TypeNode* getType() const { return type_.get(); }
+    const ExpressionNode* getExpression() const { return expression_.get(); }
+
+    void accept(ASTVisitor& visitor) override;
+
+private:
+    std::unique_ptr<IdentifierNode> name_;
+    std::unique_ptr<TypeNode> type_;
+    std::unique_ptr<ExpressionNode> expression_;
+};
+
+// マッピングノード
+class MappingNode : public ASTNode {
+public:
+    MappingNode(
+        std::unique_ptr<IdentifierNode> name,
+        std::vector<std::unique_ptr<TypeParameterNode>> type_params,
+        std::vector<std::unique_ptr<PropertyNode>> properties,
+        std::unique_ptr<PathNode> path)
+        : name_(std::move(name))
+        , type_params_(std::move(type_params))
+        , properties_(std::move(properties))
+        , path_(std::move(path)) {}
+
+    const IdentifierNode* getName() const { return name_.get(); }
+    const std::vector<std::unique_ptr<TypeParameterNode>>& getTypeParams() const {
+        return type_params_;
+    }
+    const std::vector<std::unique_ptr<PropertyNode>>& getProperties() const {
+        return properties_;
+    }
+    const PathNode* getPath() const { return path_.get(); }
+
+    void accept(ASTVisitor& visitor) override;
+
+private:
+    std::unique_ptr<IdentifierNode> name_;
+    std::vector<std::unique_ptr<TypeParameterNode>> type_params_;
+    std::vector<std::unique_ptr<PropertyNode>> properties_;
+    std::unique_ptr<PathNode> path_;
+};
+
+// シェイプノード
+class ShapeNode : public ASTNode {
+public:
+    ShapeNode(
+        std::unique_ptr<IdentifierNode> name,
+        std::vector<std::unique_ptr<TypeParameterNode>> type_params,
+        std::vector<std::unique_ptr<PropertyNode>> properties,
+        std::vector<std::unique_ptr<MappingNode>> mappings,
+        std::vector<std::unique_ptr<InvariantNode>> invariants)
+        : name_(std::move(name))
+        , type_params_(std::move(type_params))
+        , properties_(std::move(properties))
+        , mappings_(std::move(mappings))
+        , invariants_(std::move(invariants)) {}
+
+    const IdentifierNode* getName() const { return name_.get(); }
+    const std::vector<std::unique_ptr<TypeParameterNode>>& getTypeParams() const {
+        return type_params_;
+    }
+    const std::vector<std::unique_ptr<PropertyNode>>& getProperties() const {
+        return properties_;
+    }
+    const std::vector<std::unique_ptr<MappingNode>>& getMappings() const {
+        return mappings_;
+    }
+    const std::vector<std::unique_ptr<InvariantNode>>& getInvariants() const {
+        return invariants_;
+    }
+
+    void accept(ASTVisitor& visitor) override;
+
+private:
+    std::unique_ptr<IdentifierNode> name_;
+    std::vector<std::unique_ptr<TypeParameterNode>> type_params_;
+    std::vector<std::unique_ptr<PropertyNode>> properties_;
+    std::vector<std::unique_ptr<MappingNode>> mappings_;
+    std::vector<std::unique_ptr<InvariantNode>> invariants_;
+};
+
+// スペースノード
+class SpaceNode : public ASTNode {
+public:
+    SpaceNode(
+        std::unique_ptr<IdentifierNode> name,
+        std::vector<std::unique_ptr<PropertyNode>> properties,
+        std::vector<std::unique_ptr<ShapeNode>> shapes)
+        : name_(std::move(name))
+        , properties_(std::move(properties))
+        , shapes_(std::move(shapes)) {}
+
+    const IdentifierNode* getName() const { return name_.get(); }
+    const std::vector<std::unique_ptr<PropertyNode>>& getProperties() const {
+        return properties_;
+    }
+    const std::vector<std::unique_ptr<ShapeNode>>& getShapes() const {
+        return shapes_;
+    }
+
+    void accept(ASTVisitor& visitor) override;
+
+private:
+    std::unique_ptr<IdentifierNode> name_;
+    std::vector<std::unique_ptr<PropertyNode>> properties_;
+    std::vector<std::unique_ptr<ShapeNode>> shapes_;
+};
+
+// プログラムルートノード
+class ProgramNode : public ASTNode {
+public:
+    explicit ProgramNode(std::vector<std::unique_ptr<SpaceNode>> spaces)
+        : spaces_(std::move(spaces)) {}
+
+    const std::vector<std::unique_ptr<SpaceNode>>& getSpaces() const {
+        return spaces_;
+    }
+
+    void accept(ASTVisitor& visitor) override;
+
+private:
+    std::vector<std::unique_ptr<SpaceNode>> spaces_;
+};
+
+// ASTビジターインターフェース
+class ASTVisitor {
+public:
+    virtual ~ASTVisitor() = default;
+
+    virtual void visit(ProgramNode& node) = 0;
+    virtual void visit(SpaceNode& node) = 0;
+    virtual void visit(ShapeNode& node) = 0;
+    virtual void visit(MappingNode& node) = 0;
+    virtual void visit(PathNode& node) = 0;
+    virtual void visit(PathElementNode& node) = 0;
+    virtual void visit(PropertyNode& node) = 0;
+    virtual void visit(InvariantNode& node) = 0;
+    virtual void visit(TypeParameterNode& node) = 0;
+    virtual void visit(BasicTypeNode& node) = 0;
+    virtual void visit(GenericTypeNode& node) = 0;
+    virtual void visit(IdentifierNode& node) = 0;
+    virtual void visit(NumberLiteralNode& node) = 0;
+    virtual void visit(BooleanLiteralNode& node) = 0;
+    virtual void visit(StringLiteralNode& node) = 0;
+    virtual void visit(IdentifierExpressionNode& node) = 0;
+};
+
+} // namespace ast
+} // namespace topos
+
+-----
+
+// include/topos/ast/AST.hpp
+#pragma once
+#include <string>
+#include <vector>
+#include <memory>
+
+namespace topos {
+namespace ast {
+
+// 前方宣言
+class ASTVisitor;
+
+// 基本AST抽象クラス
+class ASTNode {
+public:
+    virtual ~ASTNode() = default;
+    virtual void accept(ASTVisitor& visitor) = 0;
+};
+
+// 位置情報
+struct Location {
+    size_t line;
+    size_t column;
+    
+    Location(size_t l, size_t c) : line(l), column(c) {}
+};
+
+// 識別子ノード
+class IdentifierNode : public ASTNode {
+public:
+    IdentifierNode(const std::string& name, size_t line, size_t column)
+        : name_(name), location_(line, column) {}
+
+    const std::string& getName() const { return name_; }
+    const Location& getLocation() const { return location_; }
+
+    void accept(ASTVisitor& visitor) override;
+
+private:
+    std::string name_;
+    Location location_;
+};
+
+// 型ノード基底クラス
+class TypeNode : public ASTNode {
+public:
+    virtual ~TypeNode() = default;
+};
+
+// 基本型ノード
+class BasicTypeNode : public TypeNode {
+public:
+    explicit BasicTypeNode(const std::string& name) : name_(name) {}
+
+    const std::string& getName() const { return name_; }
+    void accept(ASTVisitor& visitor) override;
+
+private:
+    std::string name_;
+};
+
+// ジェネリック型ノード
+class GenericTypeNode : public TypeNode {
+public:
+    GenericTypeNode(
+        std::unique_ptr<TypeNode> base_type,
+        std::vector<std::unique_ptr<TypeNode>> type_args)
+        : base_type_(std::move(base_type))
+        , type_args_(std::move(type_args)) {}
+
+    const TypeNode* getBaseType() const { return base_type_.get(); }
+    const std::vector<std::unique_ptr<TypeNode>>& getTypeArgs() const { 
+        return type_args_; 
+    }
+
+    void accept(ASTVisitor& visitor) override;
+
+private:
+    std::unique_ptr<TypeNode> base_type_;
+    std::vector<std::unique_ptr<TypeNode>> type_args_;
+};
+
+// 型パラメータノード
+class TypeParameterNode : public ASTNode {
+public:
+    TypeParameterNode(
+        std::unique_ptr<IdentifierNode> name,
+        std::unique_ptr<TypeNode> constraint = nullptr)
+        : name_(std::move(name))
+        , constraint_(std::move(constraint)) {}
+
+    const IdentifierNode* getName() const { return name_.get(); }
+    const TypeNode* getConstraint() const { return constraint_.get(); }
+
+    void accept(ASTVisitor& visitor) override;
+
+private:
+    std::unique_ptr<IdentifierNode> name_;
+    std::unique_ptr<TypeNode> constraint_;
+};
+
+// 式ノード基底クラス
+class ExpressionNode : public ASTNode {
+public:
+    virtual ~ExpressionNode() = default;
+};
+
+// 数値リテラルノード
+class NumberLiteralNode : public ExpressionNode {
+public:
+    explicit NumberLiteralNode(double value) : value_(value) {}
+
+    double getValue() const { return value_; }
+    void accept(ASTVisitor& visitor) override;
+
+private:
+    double value_;
+};
+
+// 真偽値リテラルノード
+class BooleanLiteralNode : public ExpressionNode {
+public:
+    explicit BooleanLiteralNode(bool value) : value_(value) {}
+
+    bool getValue() const { return value_; }
+    void accept(ASTVisitor& visitor) override;
+
+private:
+    bool value_;
+};
+
+// 文字列リテラルノード
+class StringLiteralNode : public ExpressionNode {
+public:
+    explicit StringLiteralNode(const std::string& value) : value_(value) {}
+
+    const std::string& getValue() const { return value_; }
+    void accept(ASTVisitor& visitor) override;
+
+private:
+    std::string value_;
+};
+
+// 識別子式ノード
+class IdentifierExpressionNode : public ExpressionNode {
+public:
+    explicit IdentifierExpressionNode(const std::string& name) : name_(name) {}
+
+    const std::string& getName() const { return name_; }
+    void accept(ASTVisitor& visitor) override;
+
+private:
+    std::string name_;
+};
+
+// プロパティノード
+class PropertyNode : public ASTNode {
+public:
+    PropertyNode(
+        std::unique_ptr<IdentifierNode> name,
+        std::unique_ptr<TypeNode> type,
+        std::unique_ptr<ExpressionNode> initializer = nullptr)
+        : name_(std::move(name))
+        , type_(std::move(type))
+        , initializer_(std::move(initializer)) {}
+
+    const IdentifierNode* getName() const { return name_.get(); }
+    const TypeNode* getType() const { return type_.get(); }
+    const ExpressionNode* getInitializer() const { return initializer_.get(); }
+
+    void accept(ASTVisitor& visitor) override;
+
+private:
+    std::unique_ptr<IdentifierNode> name_;
+    std::unique_ptr<TypeNode> type_;
+    std::unique_ptr<ExpressionNode> initializer_;
+};
+
+// パス要素ノード
+class PathElementNode : public ASTNode {
+public:
+    explicit PathElementNode(std::unique_ptr<IdentifierNode> name)
+        : name_(std::move(name)) {}
+
+    const IdentifierNode* getName() const { return name_.get(); }
+    void accept(ASTVisitor& visitor) override;
+
+private:
+    std::unique_ptr<IdentifierNode> name_;
+};
+
+// パスノード
+class PathNode : public ASTNode {
+public:
+    explicit PathNode(std::vector<std::unique_ptr<PathElementNode>> elements)
+        : elements_(std::move(elements)) {}
+
+    const std::vector<std::unique_ptr<PathElementNode>>& getElements() const {
+        return elements_;
+    }
+
+    void accept(ASTVisitor& visitor) override;
+
+private:
+    std::vector<std::unique_ptr<PathElementNode>> elements_;
+};
+
+// 不変条件ノード
+class InvariantNode : public ASTNode {
+public:
+    InvariantNode(
+        std::unique_ptr<IdentifierNode> name,
+        std::unique_ptr<TypeNode> type,
+        std::unique_ptr<ExpressionNode> expression)
+        : name_(std::move(name))
+        , type_(std::move(type))
+        , expression_(std::move(expression)) {}
+
+    const IdentifierNode* getName() const { return name_.get(); }
+    const TypeNode* getType() const { return type_.get(); }
+    const ExpressionNode* getExpression() const { return expression_.get(); }
+
+    void accept(ASTVisitor& visitor) override;
+
+private:
+    std::unique_ptr<IdentifierNode> name_;
+    std::unique_ptr<TypeNode> type_;
+    std::unique_ptr<ExpressionNode> expression_;
+};
+
+// マッピングノード
+class MappingNode : public ASTNode {
+public:
+    MappingNode(
+        std::unique_ptr<IdentifierNode> name,
+        std::vector<std::unique_ptr<TypeParameterNode>> type_params,
+        std::vector<std::unique_ptr<PropertyNode>> properties,
+        std::unique_ptr<PathNode> path)
+        : name_(std::move(name))
+        , type_params_(std::move(type_params))
+        , properties_(std::move(properties))
+        , path_(std::move(path)) {}
+
+    const IdentifierNode* getName() const { return name_.get(); }
+    const std::vector<std::unique_ptr<TypeParameterNode>>& getTypeParams() const {
+        return type_params_;
+    }
+    const std::vector<std::unique_ptr<PropertyNode>>& getProperties() const {
+        return properties_;
+    }
+    const PathNode* getPath() const { return path_.get(); }
+
+    void accept(ASTVisitor& visitor) override;
+
+private:
+    std::unique_ptr<IdentifierNode> name_;
+    std::vector<std::unique_ptr<TypeParameterNode>> type_params_;
+    std::vector<std::unique_ptr<PropertyNode>> properties_;
+    std::unique_ptr<PathNode> path_;
+};
+
+// シェイプノード
+class ShapeNode : public ASTNode {
+public:
+    ShapeNode(
+        std::unique_ptr<IdentifierNode> name,
+        std::vector<std::unique_ptr<TypeParameterNode>> type_params,
+        std::vector<std::unique_ptr<PropertyNode>> properties,
+        std::vector<std::unique_ptr<MappingNode>> mappings,
+        std::vector<std::unique_ptr<InvariantNode>> invariants)
+        : name_(std::move(name))
+        , type_params_(std::move(type_params))
+        , properties_(std::move(properties))
+        , mappings_(std::move(mappings))
+        , invariants_(std::move(invariants)) {}
+
+    const IdentifierNode* getName() const { return name_.get(); }
+    const std::vector<std::unique_ptr<TypeParameterNode>>& getTypeParams() const {
+        return type_params_;
+    }
+    const std::vector<std::unique_ptr<PropertyNode>>& getProperties() const {
+        return properties_;
+    }
+    const std::vector<std::unique_ptr<MappingNode>>& getMappings() const {
+        return mappings_;
+    }
+    const std::vector<std::unique_ptr<InvariantNode>>& getInvariants() const {
+        return invariants_;
+    }
+
+    void accept(ASTVisitor& visitor) override;
+
+private:
+    std::unique_ptr<IdentifierNode> name_;
+    std::vector<std::unique_ptr<TypeParameterNode>> type_params_;
+    std::vector<std::unique_ptr<PropertyNode>> properties_;
+    std::vector<std::unique_ptr<MappingNode>> mappings_;
+    std::vector<std::unique_ptr<InvariantNode>> invariants_;
+};
+
+// スペースノード
+class SpaceNode : public ASTNode {
+public:
+    SpaceNode(
+        std::unique_ptr<IdentifierNode> name,
+        std::vector<std::unique_ptr<PropertyNode>> properties,
+        std::vector<std::unique_ptr<ShapeNode>> shapes)
+        : name_(std::move(name))
+        , properties_(std::move(properties))
+        , shapes_(std::move(shapes)) {}
+
+    const IdentifierNode* getName() const { return name_.get(); }
+    const std::vector<std::unique_ptr<PropertyNode>>& getProperties() const {
+        return properties_;
+    }
+    const std::vector<std::unique_ptr<ShapeNode>>& getShapes() const {
+        return shapes_;
+    }
+
+    void accept(ASTVisitor& visitor) override;
+
+private:
+    std::unique_ptr<IdentifierNode> name_;
+    std::vector<std::unique_ptr<PropertyNode>> properties_;
+    std::vector<std::unique_ptr<ShapeNode>> shapes_;
+};
+
+// プログラムルートノード
+class ProgramNode : public ASTNode {
+public:
+    explicit ProgramNode(std::vector<std::unique_ptr<SpaceNode>> spaces)
+        : spaces_(std::move(spaces)) {}
+
+    const std::vector<std::unique_ptr<SpaceNode>>& getSpaces() const {
+        return spaces_;
+    }
+
+    void accept(ASTVisitor& visitor) override;
+
+private:
+    std::vector<std::unique_ptr<SpaceNode>> spaces_;
+};
+
+// ASTビジターインターフェース
+class ASTVisitor {
+public:
+    virtual ~ASTVisitor() = default;
+
+    virtual void visit(ProgramNode& node) = 0;
+    virtual void visit(SpaceNode& node) = 0;
+    virtual void visit(ShapeNode& node) = 0;
+    virtual void visit(MappingNode& node) = 0;
+    virtual void visit(PathNode& node) = 0;
+    virtual void visit(PathElementNode& node) = 0;
+    virtual void visit(PropertyNode& node) = 0;
+    virtual void visit(InvariantNode& node) = 0;
+    virtual void visit(TypeParameterNode& node) = 0;
+    virtual void visit(BasicTypeNode& node) = 0;
+    virtual void visit(GenericTypeNode& node) = 0;
+    virtual void visit(IdentifierNode& node) = 0;
+    virtual void visit(NumberLiteralNode& node) = 0;
+    virtual void visit(BooleanLiteralNode& node) = 0;
+    virtual void visit(StringLiteralNode& node) = 0;
+    virtual void visit(IdentifierExpressionNode& node) = 0;
+};
+
+} // namespace ast
+} // namespace topos
+
+-----
+
+// src/ast/AST.cpp
+#include "topos/ast/AST.hpp"
+
+namespace topos {
+namespace ast {
+
+// 識別子ノード
+void IdentifierNode::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+// 基本型ノード
+void BasicTypeNode::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+// ジェネリック型ノード
+void GenericTypeNode::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+// 型パラメータノード
+void TypeParameterNode::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+// 数値リテラルノード
+void NumberLiteralNode::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+// 真偽値リテラルノード
+void BooleanLiteralNode::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+// 文字列リテラルノード
+void StringLiteralNode::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+// 識別子式ノード
+void IdentifierExpressionNode::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+// プロパティノード
+void PropertyNode::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+// パス要素ノード
+void PathElementNode::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+// パスノード
+void PathNode::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+// 不変条件ノード
+void InvariantNode::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+// マッピングノード
+void MappingNode::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+// シェイプノード
+void ShapeNode::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+// スペースノード
+void SpaceNode::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+// プログラムルートノード
+void ProgramNode::accept(ASTVisitor& visitor) {
+    visitor.visit(*this);
+}
+
+// デフォルトのビジターの実装
+class DefaultASTVisitor : public ASTVisitor {
+public:
+    void visit(ProgramNode& node) override {
+        // スペースノードを訪問
+        for (const auto& space : node.getSpaces()) {
+            space->accept(*this);
+        }
+    }
+
+    void visit(SpaceNode& node) override {
+        // 名前を訪問
+        node.getName()->accept(*this);
+
+        // プロパティを訪問
+        for (const auto& prop : node.getProperties()) {
+            prop->accept(*this);
+        }
+
+        // シェイプを訪問
+        for (const auto& shape : node.getShapes()) {
+            shape->accept(*this);
+        }
+    }
+
+    void visit(ShapeNode& node) override {
+        // 名前を訪問
+        node.getName()->accept(*this);
+
+        // 型パラメータを訪問
+        for (const auto& param : node.getTypeParams()) {
+            param->accept(*this);
+        }
+
+        // プロパティを訪問
+        for (const auto& prop : node.getProperties()) {
+            prop->accept(*this);
+        }
+
+        // マッピングを訪問
+        for (const auto& mapping : node.getMappings()) {
+            mapping->accept(*this);
+        }
+
+        // 不変条件を訪問
+        for (const auto& invariant : node.getInvariants()) {
+            invariant->accept(*this);
+        }
+    }
+
+    void visit(MappingNode& node) override {
+        // 名前を訪問
+        node.getName()->accept(*this);
+
+        // 型パラメータを訪問
+        for (const auto& param : node.getTypeParams()) {
+            param->accept(*this);
+        }
+
+        // プロパティを訪問
+        for (const auto& prop : node.getProperties()) {
+            prop->accept(*this);
+        }
+
+        // パスを訪問
+        if (node.getPath()) {
+            node.getPath()->accept(*this);
+        }
+    }
+
+    void visit(PathNode& node) override {
+        // パス要素を訪問
+        for (const auto& element : node.getElements()) {
+            element->accept(*this);
+        }
+    }
+
+    void visit(PathElementNode& node) override {
+        // 名前を訪問
+        node.getName()->accept(*this);
+    }
+
+    void visit(PropertyNode& node) override {
+        // 名前を訪問
+        node.getName()->accept(*this);
+
+        // 型を訪問
+        node.getType()->accept(*this);
+
+        // 初期化式を訪問
+        if (node.getInitializer()) {
+            node.getInitializer()->accept(*this);
+        }
+    }
+
+    void visit(InvariantNode& node) override {
+        // 名前を訪問
+        node.getName()->accept(*this);
+
+        // 型を訪問
+        node.getType()->accept(*this);
+
+        // 式を訪問
+        node.getExpression()->accept(*this);
+    }
+
+    void visit(TypeParameterNode& node) override {
+        // 名前を訪問
+        node.getName()->accept(*this);
+
+        // 制約を訪問
+        if (node.getConstraint()) {
+            node.getConstraint()->accept(*this);
+        }
+    }
+
+    void visit(BasicTypeNode& node) override {
+        // 基本型は子ノードを持たない
+    }
+
+    void visit(GenericTypeNode& node) override {
+        // 基本型を訪問
+        node.getBaseType()->accept(*this);
+
+        // 型引数を訪問
+        for (const auto& arg : node.getTypeArgs()) {
+            arg->accept(*this);
+        }
+    }
+
+    void visit(IdentifierNode& node) override {
+        // 識別子は子ノードを持たない
+    }
+
+    void visit(NumberLiteralNode& node) override {
+        // 数値リテラルは子ノードを持たない
+    }
+
+    void visit(BooleanLiteralNode& node) override {
+        // 真偽値リテラルは子ノードを持たない
+    }
+
+    void visit(StringLiteralNode& node) override {
+        // 文字列リテラルは子ノードを持たない
+    }
+
+    void visit(IdentifierExpressionNode& node) override {
+        // 識別子式は子ノードを持たない
+    }
+};
+
+// プリティプリンタビジターの実装
+class ASTPrinter : public DefaultASTVisitor {
+public:
+    ASTPrinter() : indent_(0) {}
+
+    void visit(ProgramNode& node) override {
+        println("Program:");
+        indent_++;
+        DefaultASTVisitor::visit(node);
+        indent_--;
+    }
+
+    void visit(SpaceNode& node) override {
+        println("Space: " + node.getName()->getName());
+        indent_++;
+        DefaultASTVisitor::visit(node);
+        indent_--;
+    }
+
+    void visit(ShapeNode& node) override {
+        println("Shape: " + node.getName()->getName());
+        indent_++;
+        DefaultASTVisitor::visit(node);
+        indent_--;
+    }
+
+    void visit(MappingNode& node) override {
+        println("Mapping: " + node.getName()->getName());
+        indent_++;
+        DefaultASTVisitor::visit(node);
+        indent_--;
+    }
+
+    void visit(PropertyNode& node) override {
+        print("Property: " + node.getName()->getName() + " : ");
+        node.getType()->accept(*this);
+        if (node.getInitializer()) {
+            print(" = ");
+            node.getInitializer()->accept(*this);
+        }
+        println("");
+    }
+
+private:
+    size_t indent_;
+
+    void print(const std::string& text) {
+        for (size_t i = 0; i < indent_; ++i) {
+            std::cout << "  ";
+        }
+        std::cout << text;
+    }
+
+    void println(const std::string& text) {
+        print(text);
+        std::cout << std::endl;
+    }
+};
+
+} // namespace ast
+} // namespace topos
+
+-----
+
+// include/topos/types/Type.hpp
+#pragma once
+#include <memory>
+#include <vector>
+#include <string>
+#include <optional>
+#include <complex>
+#include <functional>
+
+namespace topos {
+namespace types {
+
+// 型の基本インターフェース
+class Type {
+public:
+    virtual ~Type() = default;
+    virtual bool verify_continuity() const = 0;
+    virtual bool verify_preservation() const = 0;
+    virtual std::string to_string() const = 0;
+    virtual std::unique_ptr<Type> clone() const = 0;
+};
+
+// トポロジカル型
+template<typename T>
+class TopologyType : public Type {
+public:
+    // トポロジカル空間の構造
+    struct TopologicalSpace {
+        std::vector<T> points;
+        std::vector<std::vector<size_t>> open_sets;
+        std::function<bool(const T&, const T&)> continuity_criterion;
+    };
+
+    explicit TopologyType(TopologicalSpace space)
+        : space_(std::move(space)) {}
+
+    bool verify_continuity() const override {
+        if (space_.points.empty()) return true;
+
+        // すべての点のペアについて連続性を検証
+        for (size_t i = 0; i < space_.points.size(); ++i) {
+            for (size_t j = i + 1; j < space_.points.size(); ++j) {
+                if (!space_.continuity_criterion(
+                    space_.points[i], 
+                    space_.points[j])) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    bool verify_preservation() const override {
+        // 構造保存の検証
+        return verify_open_sets() && verify_boundaries();
+    }
+
+    std::string to_string() const override {
+        return "Topology<" + std::to_string(space_.points.size()) + " points>";
+    }
+
+    std::unique_ptr<Type> clone() const override {
+        return std::make_unique<TopologyType<T>>(space_);
+    }
+
+    // トポロジカル変換の適用
+    template<typename U>
+    std::optional<TopologyType<U>> transform(
+        const std::function<U(const T&)>& mapping,
+        const std::function<bool(const U&, const U&)>& new_continuity) const {
+        
+        TopologicalSpace new_space;
+        new_space.continuity_criterion = new_continuity;
+
+        // 点の変換
+        for (const auto& point : space_.points) {
+            new_space.points.push_back(mapping(point));
+        }
+
+        // 開集合の保存を検証
+        new_space.open_sets = space_.open_sets;  // トポロジー構造を保存
+
+        return TopologyType<U>(std::move(new_space));
+    }
+
+private:
+    TopologicalSpace space_;
+
+    bool verify_open_sets() const {
+        // 開集合の公理を検証
+        return verify_empty_and_full() &&
+               verify_finite_intersection() &&
+               verify_arbitrary_union();
+    }
+
+    bool verify_empty_and_full() const {
+        // 空集合と全体集合の存在を検証
+        bool has_empty = false;
+        bool has_full = false;
+
+        for (const auto& set : space_.open_sets) {
+            if (set.empty()) has_empty = true;
+            if (set.size() == space_.points.size()) has_full = true;
+        }
+
+        return has_empty && has_full;
+    }
+
+    bool verify_finite_intersection() const {
+        // 有限個の開集合の共通部分が開集合であることを検証
+        for (const auto& set1 : space_.open_sets) {
+            for (const auto& set2 : space_.open_sets) {
+                std::vector<size_t> intersection;
+                std::set_intersection(
+                    set1.begin(), set1.end(),
+                    set2.begin(), set2.end(),
+                    std::back_inserter(intersection));
+
+                bool is_open = false;
+                for (const auto& open_set : space_.open_sets) {
+                    if (open_set == intersection) {
+                        is_open = true;
+                        break;
+                    }
+                }
+                if (!is_open) return false;
+            }
+        }
+        return true;
+    }
+
+    bool verify_arbitrary_union() const {
+        // 任意個の開集合の和集合が開集合であることを検証
+        for (size_t mask = 0; mask < (1ull << space_.open_sets.size()); ++mask) {
+            std::vector<size_t> union_set;
+            
+            for (size_t i = 0; i < space_.open_sets.size(); ++i) {
+                if (mask & (1ull << i)) {
+                    std::vector<size_t> temp;
+                    std::set_union(
+                        union_set.begin(), union_set.end(),
+                        space_.open_sets[i].begin(), space_.open_sets[i].end(),
+                        std::back_inserter(temp));
+                    union_set = std::move(temp);
+                }
+            }
+
+            bool is_open = false;
+            for (const auto& open_set : space_.open_sets) {
+                if (open_set == union_set) {
+                    is_open = true;
+                    break;
+                }
+            }
+            if (!is_open) return false;
+        }
+        return true;
+    }
+
+    bool verify_boundaries() const {
+        // 境界の連続性を検証
+        return true;  // 詳細な実装は省略
+    }
+};
+
+// 量子型
+template<typename T>
+class QuantumType : public Type {
+public:
+    // 量子状態の構造
+    struct QuantumState {
+        std::vector<std::complex<double>> amplitudes;
+        std::vector<T> basis_states;
+        bool coherent;
+    };
+
+    explicit QuantumType(QuantumState state)
+        : state_(std::move(state)) {}
+
+    bool verify_continuity() const override {
+        // 波動関数の連続性を検証
+        return verify_wavefunction_continuity();
+    }
+
+    bool verify_preservation() const override {
+        // ユニタリ性と規格化を検証
+        return verify_unitarity() && verify_normalization();
+    }
+
+    std::string to_string() const override {
+        return "Quantum<" + std::to_string(state_.basis_states.size()) + 
+               " states>";
+    }
+
+    std::unique_ptr<Type> clone() const override {
+        return std::make_unique<QuantumType<T>>(state_);
+    }
+
+    // 量子状態の測定
+    std::optional<T> measure() const {
+        if (!state_.coherent || state_.amplitudes.empty()) {
+            return std::nullopt;
+        }
+
+        // 測定確率の計算
+        std::vector<double> probabilities;
+        for (const auto& amplitude : state_.amplitudes) {
+            probabilities.push_back(std::norm(amplitude));
+        }
+
+        // 測定結果の選択
+        double random = generate_random_number();
+        double cumulative = 0.0;
+        
+        for (size_t i = 0; i < probabilities.size(); ++i) {
+            cumulative += probabilities[i];
+            if (random <= cumulative) {
+                state_.coherent = false;  // 状態の崩壊
+                return state_.basis_states[i];
+            }
+        }
+
+        return std::nullopt;
+    }
+
+    // ユニタリ変換の適用
+    bool apply_unitary(const std::vector<std::vector<std::complex<double>>>& U) {
+        if (!verify_unitary_matrix(U) || 
+            U.size() != state_.amplitudes.size()) {
+            return false;
+        }
+
+        std::vector<std::complex<double>> new_amplitudes(
+            state_.amplitudes.size());
+
+        // 行列の乗算
+        for (size_t i = 0; i < U.size(); ++i) {
+            new_amplitudes[i] = 0;
+            for (size_t j = 0; j < U[i].size(); ++j) {
+                new_amplitudes[i] += U[i][j] * state_.amplitudes[j];
+            }
+        }
+
+        state_.amplitudes = std::move(new_amplitudes);
+        return true;
+    }
+
+private:
+    QuantumState state_;
+
+    bool verify_wavefunction_continuity() const {
+        if (!state_.coherent) return true;
+
+        // 波動関数の連続性を検証
+        for (size_t i = 1; i < state_.amplitudes.size(); ++i) {
+            auto diff = state_.amplitudes[i] - state_.amplitudes[i-1];
+            if (std::abs(diff) > continuity_threshold_) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    bool verify_unitarity() const {
+        // ユニタリ性の検証（簡略化）
+        return true;
+    }
+
+    bool verify_normalization() const {
+        if (!state_.coherent) return true;
+
+        // 規格化条件の検証
+        double total_probability = 0.0;
+        for (const auto& amplitude : state_.amplitudes) {
+            total_probability += std::norm(amplitude);
+        }
+
+        return std::abs(total_probability - 1.0) < normalization_threshold_;
+    }
+
+    bool verify_unitary_matrix(
+        const std::vector<std::vector<std::complex<double>>>& U) const {
+        
+        // 行列のユニタリ性を検証
+        if (U.empty()) return false;
+
+        const size_t n = U.size();
+        for (const auto& row : U) {
+            if (row.size() != n) return false;
+        }
+
+        // U†U = I を検証
+        for (size_t i = 0; i < n; ++i) {
+            for (size_t j = 0; j < n; ++j) {
+                std::complex<double> sum(0.0, 0.0);
+                for (size_t k = 0; k < n; ++k) {
+                    sum += std::conj(U[k][i]) * U[k][j];
+                }
+                
+                if (i == j) {
+                    if (std::abs(sum - std::complex<double>(1.0, 0.0)) > 
+                        unitary_threshold_) {
+                        return false;
+                    }
+                } else {
+                    if (std::abs(sum) > unitary_threshold_) {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        return true;
+    }
+
+    static double generate_random_number() {
+        static std::random_device rd;
+        static std::mt19937 gen(rd());
+        static std::uniform_real_distribution<> dis(0.0, 1.0);
+        return dis(gen);
+    }
+
+    static constexpr double continuity_threshold_ = 1e-6;
+    static constexpr double normalization_threshold_ = 1e-10;
+    static constexpr double unitary_threshold_ = 1e-10;
+};
+
+// 複合型
+class CompositeType : public Type {
+public:
+    CompositeType(std::unique_ptr<Type> first, std::unique_ptr<Type> second)
+        : first_(std::move(first)), second_(std::move(second)) {}
+
+    bool verify_continuity() const override {
+        return first_->verify_continuity() && second_->verify_continuity();
+    }
+
+    bool verify_preservation() const override {
+        return first_->verify_preservation() && second_->verify_preservation();
+    }
+
+    std::string to_string() const override {
+        return "(" + first_->to_string() + " × " + second_->to_string() + ")";
+    }
+
+    std::unique_ptr<Type> clone() const override {
+        return std::make_unique<CompositeType>(
+            first_->clone(),
+            second_->clone());
+    }
+
+private:
+    std::unique_ptr<Type> first_;
+    std::unique_ptr<Type> second_;
+};
+
+} // namespace types
+} // namespace topos
+

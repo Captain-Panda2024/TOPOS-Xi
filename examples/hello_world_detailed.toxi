@@ -1,0 +1,60 @@
+space HelloWorld {
+    properties {
+        // 空間の基本プロパティ
+        dimension: Number = 1
+        compact: Boolean = true
+        connected: Boolean = true
+        hausdorff: Boolean = true
+        
+        // 量子的性質
+        quantum_enabled: Boolean = false
+        decoherence_protected: Boolean = true
+        
+        // 実行時プロパティ
+        thread_safe: Boolean = true
+        observable: Boolean = true
+    }
+
+    shape Message {
+        properties {
+            // メッセージの性質
+            content: Observable<Text> = "Hello, World!"
+            mutable: Boolean = false
+            persistent: Boolean = false
+            
+            // トポロジカルな性質
+            continuous: Boolean = true
+            differentiable: Boolean = true
+        }
+    }
+
+    mapping display() {
+        properties {
+            // マッピングの性質
+            continuous: Boolean = true
+            invertible: Boolean = false
+            preserves_structure: Boolean = true
+            
+            // 実行時の性質
+            atomic: Boolean = true
+            side_effect_free: Boolean = true
+        }
+        
+        path {
+            prepare_state ->
+            validate_topology ->
+            ensure_continuity ->
+            emit_to_observer
+        }
+    }
+}
+
+// エントリーポイント
+mapping main() {
+    properties {
+        entrypoint: Boolean = true
+        atomic: Boolean = true
+    }
+    
+    HelloWorld.display()
+}

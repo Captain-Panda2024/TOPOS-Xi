@@ -1,0 +1,23 @@
+space HelloWorld {
+    shape Message {
+        properties {
+            content: Observable<Text> = "Hello, World!"
+        }
+    }
+
+    mapping display() {
+        properties {
+            continuous: true
+        }
+        
+        path {
+            prepare_state ->
+            emit_to_observer
+        }
+    }
+}
+
+// エントリーポイント
+mapping main() {
+    HelloWorld.display()
+}
