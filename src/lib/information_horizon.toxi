@@ -1,0 +1,102 @@
+// Information Horizon Extension Library
+
+space InformationHorizon {
+    // Core types and interfaces
+    shape HorizonBoundary {
+        properties {
+            radius: Observable<Number>
+            entropy: Quantum<Number>
+            information_density: Observable<Number>
+        }
+
+        invariant {
+            information_density > 0
+            entropy.is_monotonic()
+            radius.is_finite()
+        }
+
+        methods {
+            expand(factor: Number): void
+            contract(factor: Number): void
+            measure_entropy(): Observable<Number>
+        }
+    }
+
+    shape InformationField {
+        properties {
+            field: Quantum<Array<Observable<Any>>>
+            coherence: Observable<Number>
+        }
+
+        invariant {
+            field.is_coherent()
+            quantum_state_preserved(field)
+        }
+
+        methods {
+            add_information(info: Any): void
+            remove_information(index: Number): void
+            measure_coherence(): Number
+        }
+    }
+
+    // Core transformations
+    mapping extend_horizon() {
+        properties {
+            continuous: true
+            quantum: true
+            reversible: true
+        }
+
+        path {
+            prepare_quantum_state ->
+            validate_invariants ->
+            expand_boundary ->
+            maintain_coherence ->
+            check_invariants ->
+            project_to_classical
+        }
+    }
+
+    mapping collapse_information() {
+        properties {
+            continuous: true
+            quantum: false
+        }
+
+        path {
+            measure_quantum_state ->
+            validate_invariants ->
+            reduce_dimension ->
+            emit_to_observer
+        }
+    }
+
+    // Utility functions
+    namespace utils {
+        mapping calculate_entropy(field: InformationField): Number
+        mapping measure_radius(boundary: HorizonBoundary): Number
+        mapping check_coherence(field: InformationField): Boolean
+    }
+
+    // Quantum operations
+    namespace quantum {
+        mapping superpose_states(states: Array<Any>): Quantum<Array<Any>>
+        mapping entangle_fields(field1: InformationField, field2: InformationField): void
+        mapping measure_quantum_field(field: Quantum<Array<Any>>): Observable<Array<Any>>
+    }
+
+    // Error handling
+    namespace error {
+        shape HorizonError {
+            properties {
+                message: Text
+                code: Number
+                severity: Text
+            }
+        }
+
+        mapping handle_horizon_error(error: HorizonError): void
+        mapping recover_quantum_state(field: InformationField): void
+    }
+}
