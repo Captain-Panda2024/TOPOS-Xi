@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.20)
 project(toposXi VERSION 0.1.0 LANGUAGES CXX)
 
 # C++17を要求
@@ -22,6 +22,16 @@ message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 include_directories(${LLVM_INCLUDE_DIRS})
 add_definitions(${LLVM_DEFINITIONS})
 
+# コード生成オプション
+option(BUILD_TESTING "Build tests" ON)
+option(CODE_COVERAGE "Enable coverage reporting" ON)
+
+# コードカバレッジの設定
+if(CODE_COVERAGE AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    add_compile_options(-O0 -g --coverage)
+    add_link_options(--coverage)
+endif()
+
 # ソースファイルの収集
 file(GLOB_RECURSE SOURCES 
     "src/compiler/*.cpp"
@@ -39,5 +49,21 @@ add_executable(toposXi src/main.cpp)
 target_link_libraries(toposXi PRIVATE toposXi_lib)
 
 # テストの設定
-enable_testing()
-add_subdirectory(tests)
+if(BUILD_TESTING)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
+
+# インストールルール
+install(TARGETS toposXi_lib
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    RUNTIME DESTINATION bin
+    INCLUDES DESTINATION include
+)
+
+# パッケージ設定
+set(CPACK_PACKAGE_NAME "toposXi")
+set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "TOPOS-Ξ Quantum Compiler")
+include(CPack)

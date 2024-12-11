@@ -25,9 +25,26 @@ public:
         }
 
     private:
-        bool verifyConnectedness() const;
-        bool verifyContinuity() const;
-        bool verifyCompactness() const;
+        bool verifyConnectedness() const {
+            if (auto topology = dynamic_cast<const TopologyType*>(left_.get())) {
+                return topology->verifyProperty("connected");
+            }
+            return false;
+        }
+
+        bool verifyContinuity() const {
+            if (auto topology = dynamic_cast<const TopologyType*>(left_.get())) {
+                return topology->verifyProperty("continuous");
+            }
+            return false;
+        }
+
+        bool verifyCompactness() const {
+            if (auto topology = dynamic_cast<const TopologyType*>(left_.get())) {
+                return topology->verifyProperty("compact");
+            }
+            return false;
+        }
     };
 
     // 量子制約
@@ -43,9 +60,26 @@ public:
         }
 
     private:
-        bool verifyUnitarity() const;
-        bool verifyNormalization() const;
-        bool verifyEntanglement() const;
+        bool verifyUnitarity() const {
+            if (auto quantum = dynamic_cast<const QuantumType*>(left_.get())) {
+                return quantum->verifyProperty("unitary");
+            }
+            return false;
+        }
+
+        bool verifyNormalization() const {
+            if (auto quantum = dynamic_cast<const QuantumType*>(left_.get())) {
+                return quantum->verifyProperty("normalized");
+            }
+            return false;
+        }
+
+        bool verifyEntanglement() const {
+            if (auto quantum = dynamic_cast<const QuantumType*>(left_.get())) {
+                return quantum->verifyProperty("entangled");
+            }
+            return false;
+        }
     };
 
     // 依存型制約
