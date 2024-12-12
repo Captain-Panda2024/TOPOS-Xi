@@ -1,0 +1,3 @@
+[submodule "examples/wizardry_crpg"]
+    path = examples/wizardry_crpg
+    url = https://github.com/Captain-Panda2024/quantum-wizardry-crpg.git
