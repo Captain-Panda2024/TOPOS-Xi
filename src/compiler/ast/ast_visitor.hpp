@@ -15,6 +15,12 @@ class PathElementNode;
 class PathNode;
 class ProgramNode;
 class InvariantNode;
+class IdentifierExprNode;
+class NumberExprNode;
+class StringExprNode;
+class BinaryExprNode;
+class UnaryExprNode;
+class CallExprNode;
 
 class ASTVisitor {
 public:
@@ -39,19 +45,15 @@ public:
 
     // プログラムノード
     virtual void visitProgram(ProgramNode& node) = 0;
-};
 
-// Implement accept methods for each node type
-inline void IdentifierNode::accept(ASTVisitor& visitor) { visitor.visitIdentifier(*this); }
-inline void TypeNode::accept(ASTVisitor& visitor) { visitor.visitType(*this); }
-inline void PropertyNode::accept(ASTVisitor& visitor) { visitor.visitProperty(*this); }
-inline void MappingNode::accept(ASTVisitor& visitor) { visitor.visitMapping(*this); }
-inline void ShapeNode::accept(ASTVisitor& visitor) { visitor.visitShape(*this); }
-inline void SpaceNode::accept(ASTVisitor& visitor) { visitor.visitSpace(*this); }
-inline void PathElementNode::accept(ASTVisitor& visitor) { visitor.visitPathElement(*this); }
-inline void PathNode::accept(ASTVisitor& visitor) { visitor.visitPath(*this); }
-inline void ProgramNode::accept(ASTVisitor& visitor) { visitor.visitProgram(*this); }
-inline void InvariantNode::accept(ASTVisitor& visitor) { visitor.visitInvariant(*this); }
+    // 式ノード
+    virtual void visitIdentifierExpr(IdentifierExprNode& node) = 0;
+    virtual void visitNumberExpr(NumberExprNode& node) = 0;
+    virtual void visitStringExpr(StringExprNode& node) = 0;
+    virtual void visitBinaryExpr(BinaryExprNode& node) = 0;
+    virtual void visitUnaryExpr(UnaryExprNode& node) = 0;
+    virtual void visitCallExpr(CallExprNode& node) = 0;
+};
 
 } // namespace ast
 } // namespace topos

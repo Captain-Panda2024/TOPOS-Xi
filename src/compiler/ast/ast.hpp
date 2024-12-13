@@ -5,6 +5,7 @@
 #include <vector>
 #include <string>
 #include "llvm/ADT/StringRef.h"
+#include "ast_visitor.hpp"  // ASTVisitorクラスの定義をインクルード
 
 namespace topos {
 namespace ast {
@@ -21,6 +22,7 @@ class PathElementNode;
 class PathNode;
 class ProgramNode;
 class InvariantNode;
+class ExpressionNode;
 
 // 基本的なASTノード
 class ASTNode {
@@ -206,6 +208,148 @@ private:
     std::vector<std::unique_ptr<PathElementNode>> elements_;
 };
 
+// 式ノード
+class ExpressionNode : public ASTNode {
+public:
+    enum class ExprKind {
+        Identifier,
+        Number,
+        String,
+        Binary,
+        Unary,
+        Call
+    };
+
+    ExpressionNode(ExprKind kind, Location loc)
+        : kind_(kind), location_(loc) {}
+
+    virtual ~ExpressionNode() = default;
+    ExprKind getKind() const { return kind_; }
+    Location getLocation() const { return location_; }
+
+protected:
+    ExprKind kind_;
+    Location location_;
+};
+
+// 識別子式ノード
+class IdentifierExprNode : public ExpressionNode {
+public:
+    IdentifierExprNode(const std::string& name, Location loc)
+        : ExpressionNode(ExprKind::Identifier, loc), name_(name) {}
+
+    const std::string& getName() const { return name_; }
+    void accept(ASTVisitor& visitor) override { visitor.visitIdentifierExpr(*this); }
+
+private:
+    std::string name_;
+};
+
+// 数値式ノード
+class NumberExprNode : public ExpressionNode {
+public:
+    NumberExprNode(double value, Location loc)
+        : ExpressionNode(ExprKind::Number, loc), value_(value) {}
+
+    double getValue() const { return value_; }
+    void accept(ASTVisitor& visitor) override { visitor.visitNumberExpr(*this); }
+
+private:
+    double value_;
+};
+
+// 文字列式ノード
+class StringExprNode : public ExpressionNode {
+public:
+    StringExprNode(const std::string& value, Location loc)
+        : ExpressionNode(ExprKind::String, loc), value_(value) {}
+
+    const std::string& getValue() const { return value_; }
+    void accept(ASTVisitor& visitor) override { visitor.visitStringExpr(*this); }
+
+private:
+    std::string value_;
+};
+
+// 二項演算式ノード
+class BinaryExprNode : public ExpressionNode {
+public:
+    enum class OpKind {
+        Add,     // +
+        Sub,     // -
+        Mul,     // *
+        Div,     // /
+        Equal,   // ==
+        NotEq,   // !=
+        Less,    // <
+        LessEq,  // <=
+        Greater, // >
+        GreatEq  // >=
+    };
+
+    BinaryExprNode(std::unique_ptr<ExpressionNode> left,
+                  std::unique_ptr<ExpressionNode> right,
+                  OpKind op,
+                  Location loc)
+        : ExpressionNode(ExprKind::Binary, loc),
+          left_(std::move(left)),
+          right_(std::move(right)),
+          op_(op) {}
+
+    const ExpressionNode* getLeft() const { return left_.get(); }
+    const ExpressionNode* getRight() const { return right_.get(); }
+    OpKind getOp() const { return op_; }
+    void accept(ASTVisitor& visitor) override { visitor.visitBinaryExpr(*this); }
+
+private:
+    std::unique_ptr<ExpressionNode> left_;
+    std::unique_ptr<ExpressionNode> right_;
+    OpKind op_;
+};
+
+// 単項演算式ノード
+class UnaryExprNode : public ExpressionNode {
+public:
+    enum class OpKind {
+        Neg,  // -
+        Not   // !
+    };
+
+    UnaryExprNode(std::unique_ptr<ExpressionNode> operand,
+                  OpKind op,
+                  Location loc)
+        : ExpressionNode(ExprKind::Unary, loc),
+          operand_(std::move(operand)),
+          op_(op) {}
+
+    const ExpressionNode* getOperand() const { return operand_.get(); }
+    OpKind getOp() const { return op_; }
+    void accept(ASTVisitor& visitor) override { visitor.visitUnaryExpr(*this); }
+
+private:
+    std::unique_ptr<ExpressionNode> operand_;
+    OpKind op_;
+};
+
+// 関数呼び出し式ノード
+class CallExprNode : public ExpressionNode {
+public:
+    CallExprNode(std::unique_ptr<ExpressionNode> callee,
+                 std::vector<std::unique_ptr<ExpressionNode>> args,
+                 Location loc)
+        : ExpressionNode(ExprKind::Call, loc),
+          callee_(std::move(callee)),
+          args_(std::move(args)) {}
+
+    const ExpressionNode* getCallee() const { return callee_.get(); }
+    const std::vector<std::unique_ptr<ExpressionNode>>& getArgs() const { return args_; }
+    void accept(ASTVisitor& visitor) override { visitor.visitCallExpr(*this); }
+
+private:
+    std::unique_ptr<ExpressionNode> callee_;
+    std::vector<std::unique_ptr<ExpressionNode>> args_;
+};
+
 // 不変条件ノード
 class InvariantNode : public ASTNode {
 public:
@@ -235,6 +379,10 @@ public:
         : spaces_(std::move(spaces)) {}
 
     const std::vector<std::unique_ptr<SpaceNode>>& getSpaces() const {
+        return spaces_;
+    }
+
+    const std::vector<std::unique_ptr<SpaceNode>>& getNodes() const {
         return spaces_;
     }
 
@@ -322,6 +470,56 @@ public:
             std::move(name),
             std::move(type),
             std::move(condition));
+    }
+
+    std::unique_ptr<ExpressionNode> buildIdentifierExpr(
+        const std::string& name,
+        Location location) {
+        return std::make_unique<IdentifierExprNode>(name, location);
+    }
+
+    std::unique_ptr<ExpressionNode> buildNumberExpr(
+        double value,
+        Location location) {
+        return std::make_unique<NumberExprNode>(value, location);
+    }
+
+    std::unique_ptr<ExpressionNode> buildStringExpr(
+        const std::string& value,
+        Location location) {
+        return std::make_unique<StringExprNode>(value, location);
+    }
+
+    std::unique_ptr<ExpressionNode> buildBinaryExpr(
+        std::unique_ptr<ExpressionNode> left,
+        std::unique_ptr<ExpressionNode> right,
+        BinaryExprNode::OpKind op,
+        Location location) {
+        return std::make_unique<BinaryExprNode>(
+            std::move(left),
+            std::move(right),
+            op,
+            location);
+    }
+
+    std::unique_ptr<ExpressionNode> buildUnaryExpr(
+        std::unique_ptr<ExpressionNode> operand,
+        UnaryExprNode::OpKind op,
+        Location location) {
+        return std::make_unique<UnaryExprNode>(
+            std::move(operand),
+            op,
+            location);
+    }
+
+    std::unique_ptr<ExpressionNode> buildCallExpr(
+        std::unique_ptr<ExpressionNode> callee,
+        std::vector<std::unique_ptr<ExpressionNode>> args,
+        Location location) {
+        return std::make_unique<CallExprNode>(
+            std::move(callee),
+            std::move(args),
+            location);
     }
 };
 
