@@ -1,7 +1,9 @@
 #include <gtest/gtest.h>
-#include "../../../src/compiler/types/type_system.hpp"
-#include "../../../src/compiler/types/refined_constraints.hpp"
-#include <complex>
+#include "compiler/types/type_system.hpp"
+#include "compiler/types/refined_constraints.hpp"
+#include "compiler/types/dependent_type.hpp"
+#include "compiler/types/topology_traits.hpp"
+#include "compiler/types/quantum_traits.hpp"
 #include <memory>
 
 namespace topos {
@@ -83,111 +85,256 @@ TEST_F(TypeSystemTest, QuantumTypeTest) {
     EXPECT_TRUE(verifyMeasurement(*measurement));
 }
 
-// 制約システムのテスト
-TEST_F(TypeSystemTest, ConstraintSystemTest) {
-    auto type_a = std::make_unique<BasicType>("int");
-    auto type_b = std::make_unique<BasicType>("float");
+// サブタイプ制約のテスト
+TEST_F(TypeSystemTest, SubtypeConstraintTest) {
+    try {
+        // 基本型の作成
+        auto float_type = std::make_unique<BasicType>("float");
+        auto number_type = std::make_unique<BasicType>("number");
 
-    RefinedConstraintSystem system;
+        // 型の検証
+        EXPECT_TRUE(float_type->verify()) << "Float type verification failed";
+        EXPECT_TRUE(number_type->verify()) << "Number type verification failed";
 
-    // サブタイプ制約の追加
-    system.addConstraint(
-        std::make_unique<RefinedConstraintSystem::SubtypeConstraint>(type_a.get(), type_b.get()));
+        // サブタイプ関係の検証
+        EXPECT_TRUE(float_type->isSubtypeOf(*number_type)) << "Float should be a subtype of number";
+        EXPECT_FALSE(number_type->isSubtypeOf(*float_type)) << "Number should not be a subtype of float";
 
-    // 依存型の作成
-    auto dependent_type = std::make_unique<DependentType>(
-        std::move(type_a),
-        [](const Type&) -> bool { return true; }, // デフォルトの述語
-        [](const Type&) -> bool { return true; }, // デフォルトのトポロジー制約
-        [](const Type&) -> bool { return true; }  // デフォルトの量子制約
-    );
-
-    // 依存型制約の追加
-    system.addConstraint(
-        std::make_unique<RefinedConstraintSystem::DependentConstraint>(dependent_type.get(), type_b.get()));
-
-    // 制約の検証
-    EXPECT_TRUE(system.verifyAll());
+    } catch (const std::exception& e) {
+        FAIL() << "Exception caught: " << e.what();
+    }
 }
 
-// テストヘルパー関数
+// トポロジー制約のテスト
+TEST_F(TypeSystemTest, TopologyConstraintTest) {
+    RefinedConstraintSystem system;
+
+    auto connected_space = createConnectedSpace();
+    system.addConstraint(
+        std::make_unique<RefinedConstraintSystem::TopologicalConstraint>(
+            std::move(connected_space)
+        )
+    );
+
+    EXPECT_TRUE(system.verifyAll()) << "Topology constraint verification failed: " << system.getLastError();
+}
+
+// 依存型制約のテスト
+TEST_F(TypeSystemTest, DependentConstraintTest) {
+    RefinedConstraintSystem system;
+
+    try {
+        // 基本型の作成
+        auto base_space = createConnectedSpace();
+        if (!base_space) {
+            FAIL() << "Failed to create base space";
+        }
+        
+        // 依存型の作成
+        auto dep_space = createConnectedSpace();
+        if (!dep_space) {
+            FAIL() << "Failed to create dependent space";
+        }
+
+        // 基本型の検証
+        EXPECT_TRUE(base_space->verify()) << "Base space verification failed";
+        EXPECT_TRUE(dep_space->verify()) << "Dependent space verification failed";
+
+        auto predicate = [](const Type& t) {
+            return t.verify();
+        };
+
+        auto topology_constraint = [](const Type& t) {
+            if (auto topo = dynamic_cast<const TopologyType*>(&t)) {
+                return topo->verify() && topo->verifyProperty(TopologyTraits::Property::CONNECTEDNESS);
+            }
+            return false;
+        };
+
+        auto quantum_constraint = [](const Type& t) {
+            return t.verify();
+        };
+
+        auto dependent_type = std::make_unique<DependentType>(
+            std::move(dep_space),
+            predicate,
+            topology_constraint,
+            quantum_constraint
+        );
+
+        EXPECT_TRUE(dependent_type->verify()) << "Dependent type verification failed";
+
+        system.addConstraint(
+            std::make_unique<RefinedConstraintSystem::DependentConstraint>(
+                std::move(base_space),
+                std::move(dependent_type)
+            )
+        );
+
+        // すべての制約を検証
+        EXPECT_TRUE(system.verifyAll()) << "Dependent constraint verification failed: " << system.getLastError();
+
+    } catch (const std::exception& e) {
+        FAIL() << "Exception caught: " << e.what();
+    }
+}
+
+// 複合制約のテスト
+TEST_F(TypeSystemTest, CombinedConstraintTest) {
+    RefinedConstraintSystem system;
+
+    try {
+        // サブタイプ制約
+        {
+            auto float_type = std::make_unique<BasicType>("float");
+            auto number_type = std::make_unique<BasicType>("number");
+
+            EXPECT_TRUE(float_type->verify()) << "Float type verification failed";
+            EXPECT_TRUE(number_type->verify()) << "Number type verification failed";
+
+            system.addConstraint(
+                std::make_unique<RefinedConstraintSystem::SubtypeConstraint>(
+                    std::move(float_type),
+                    std::move(number_type)
+                )
+            );
+        }
+
+        // トポロジー制約
+        {
+            auto space = createConnectedSpace();
+            EXPECT_TRUE(space->verify()) << "Space verification failed";
+
+            system.addConstraint(
+                std::make_unique<RefinedConstraintSystem::TopologicalConstraint>(
+                    std::move(space)
+                )
+            );
+        }
+
+        // 依存型制約
+        {
+            auto base_space = createConnectedSpace();
+            auto dep_space = createConnectedSpace();
+
+            EXPECT_TRUE(base_space->verify()) << "Base space verification failed";
+            EXPECT_TRUE(dep_space->verify()) << "Dependent space verification failed";
+
+            auto predicate = [](const Type& t) {
+                return t.verify();
+            };
+
+            auto topology_constraint = [](const Type& t) {
+                if (auto topo = dynamic_cast<const TopologyType*>(&t)) {
+                    return topo->verify() && topo->verifyProperty(TopologyTraits::Property::CONNECTEDNESS);
+                }
+                return false;
+            };
+
+            auto quantum_constraint = [](const Type& t) {
+                return t.verify();
+            };
+
+            auto dependent_type = std::make_unique<DependentType>(
+                std::move(dep_space),
+                predicate,
+                topology_constraint,
+                quantum_constraint
+            );
+
+            EXPECT_TRUE(dependent_type->verify()) << "Dependent type verification failed";
+
+            system.addConstraint(
+                std::make_unique<RefinedConstraintSystem::DependentConstraint>(
+                    std::move(base_space),
+                    std::move(dependent_type)
+                )
+            );
+        }
+
+        // すべての制約を検証
+        EXPECT_TRUE(system.verifyAll()) << "Combined constraint verification failed: " << system.getLastError();
+
+    } catch (const std::exception& e) {
+        FAIL() << "Exception caught: " << e.what();
+    }
+}
+
+// ヘルパー関数
 std::unique_ptr<TopologyType> createConnectedSpace() {
-    auto base_type = std::make_unique<BasicType>("real");
+    auto base_type = std::make_unique<BasicType>("space");
     auto topology = std::make_unique<TopologyType>(std::move(base_type));
-    topology->setProperty("connected", true);
-    topology->setProperty("hausdorff", true);
-    topology->setProperty("compact", false);
+    topology->setProperty(TopologyTraits::Property::CONNECTEDNESS, true);
+    topology->setProperty(TopologyTraits::Property::HAUSDORFFNESS, true);
     return topology;
 }
 
 std::unique_ptr<TopologyType> createHausdorffSpace() {
-    auto base_type = std::make_unique<BasicType>("real");
+    auto base_type = std::make_unique<BasicType>("space");
     auto topology = std::make_unique<TopologyType>(std::move(base_type));
-    topology->setProperty("connected", false);
-    topology->setProperty("hausdorff", true);
-    topology->setProperty("compact", false);
+    topology->setProperty(TopologyTraits::Property::CONNECTEDNESS, false);
+    topology->setProperty(TopologyTraits::Property::HAUSDORFFNESS, true);
     return topology;
 }
 
 std::unique_ptr<TopologyType> createCompactSpace() {
-    auto base_type = std::make_unique<BasicType>("real");
+    auto base_type = std::make_unique<BasicType>("space");
     auto topology = std::make_unique<TopologyType>(std::move(base_type));
-    topology->setProperty("connected", true);
-    topology->setProperty("hausdorff", true);
-    topology->setProperty("compact", true);
+    topology->setProperty(TopologyTraits::Property::CONNECTEDNESS, true);
+    topology->setProperty(TopologyTraits::Property::HAUSDORFFNESS, true);
+    topology->setProperty(TopologyTraits::Property::COMPACTNESS, true);
     return topology;
 }
 
 std::unique_ptr<QuantumType> createEntangledState() {
-    auto base_type = std::make_unique<BasicType>("complex");
-    auto quantum = std::make_unique<QuantumType>(std::move(base_type));
-    quantum->setProperty("unitary", true);
-    quantum->setProperty("normalized", true);
-    quantum->setProperty("entangled", true);
+    auto quantum = std::make_unique<QuantumType>();
+    quantum->setProperty(QuantumTraits::Property::unitary, true);
+    quantum->setProperty(QuantumTraits::Property::normalized, true);
+    quantum->setProperty(QuantumTraits::Property::entangled, true);
     return quantum;
 }
 
 std::unique_ptr<QuantumType> createSuperposition() {
-    auto base_type = std::make_unique<BasicType>("complex");
-    auto quantum = std::make_unique<QuantumType>(std::move(base_type));
-    quantum->setProperty("unitary", true);
-    quantum->setProperty("normalized", true);
-    quantum->setProperty("entangled", false);
+    auto quantum = std::make_unique<QuantumType>();
+    quantum->setProperty(QuantumTraits::Property::unitary, true);
+    quantum->setProperty(QuantumTraits::Property::normalized, true);
+    quantum->setProperty(QuantumTraits::Property::entangled, false);
     return quantum;
 }
 
 std::unique_ptr<QuantumType> createMeasurement() {
-    auto base_type = std::make_unique<BasicType>("complex");
-    auto quantum = std::make_unique<QuantumType>(std::move(base_type));
-    quantum->setProperty("unitary", false);
-    quantum->setProperty("normalized", true);
-    quantum->setProperty("entangled", false);
+    auto quantum = std::make_unique<QuantumType>();
+    quantum->setProperty(QuantumTraits::Property::unitary, false);
+    quantum->setProperty(QuantumTraits::Property::normalized, true);
+    quantum->setProperty(QuantumTraits::Property::entangled, false);
     return quantum;
 }
 
-// 検証ヘルパー関数
+// 検証関数
 bool verifyConnectedness(const TopologyType& space) {
-    return space.verifyProperty("connected");
+    return space.verifyProperty(TopologyTraits::Property::CONNECTEDNESS);
 }
 
 bool verifySeparationAxioms(const TopologyType& space) {
-    return space.verifyProperty("hausdorff");
+    return space.verifyProperty(TopologyTraits::Property::HAUSDORFFNESS);
 }
 
 bool verifyCompactness(const TopologyType& space) {
-    return space.verifyProperty("compact");
+    return space.verifyProperty(TopologyTraits::Property::COMPACTNESS);
 }
 
 bool verifyEntanglement(const QuantumType& state) {
-    return state.verifyProperty("entangled");
+    return state.verifyProperty(QuantumTraits::Property::entangled);
 }
 
 bool verifySuperposition(const QuantumType& state) {
-    return state.verifyProperty("normalized") && !state.verifyProperty("entangled");
+    return state.verifyProperty(QuantumTraits::Property::normalized) && 
+           !state.verifyProperty(QuantumTraits::Property::entangled);
 }
 
 bool verifyMeasurement(const QuantumType& state) {
-    return !state.verifyProperty("unitary") && state.verifyProperty("normalized");
+    return !state.verifyProperty(QuantumTraits::Property::unitary) && 
+           state.verifyProperty(QuantumTraits::Property::normalized);
 }
 
 } // namespace test
