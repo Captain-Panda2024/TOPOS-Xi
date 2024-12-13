@@ -52,8 +52,8 @@ public:
     public:
         SubtypeConstraint(Type* left, Type* right)
             : TypeConstraint(nullptr, nullptr, ConstraintKind::Subtype) {
-            left_ = left;
-            right_ = right;
+            left_.reset(left);
+            right_.reset(right);
         }
 
         bool verify() const override {

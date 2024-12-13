@@ -98,42 +98,69 @@ TEST_F(TypeSystemTest, ConstraintSystemTest) {
 // テストヘルパー関数
 std::unique_ptr<TopologyType> createConnectedSpace() {
     auto base = std::make_unique<BasicType>("real");
-    return std::make_unique<TopologyType>(std::move(base));
+    auto topology = std::make_unique<TopologyType>(std::move(base));
+    topology->setProperty("connected", true);
+    return topology;
 }
-    
+
 std::unique_ptr<TopologyType> createHausdorffSpace() {
     auto base = std::make_unique<BasicType>("real");
-    return std::make_unique<TopologyType>(std::move(base));
+    auto topology = std::make_unique<TopologyType>(std::move(base));
+    topology->setProperty("hausdorff", true);
+    return topology;
 }
-    
+
 std::unique_ptr<TopologyType> createCompactSpace() {
     auto base = std::make_unique<BasicType>("real");
-    return std::make_unique<TopologyType>(std::move(base));
+    auto topology = std::make_unique<TopologyType>(std::move(base));
+    topology->setProperty("compact", true);
+    return topology;
 }
-    
-std::unique_ptr<QuantumType> createUnitaryGate() {
-    auto base = std::make_unique<BasicType>("complex");
-    return std::make_unique<QuantumType>(std::move(base));
-}
-    
-std::unique_ptr<QuantumType> createNormalizedState() {
-    auto base = std::make_unique<BasicType>("complex");
-    return std::make_unique<QuantumType>(std::move(base));
-}
-    
+
 std::unique_ptr<QuantumType> createEntangledState() {
-    auto base = std::make_unique<BasicType>("complex");
-    return std::make_unique<QuantumType>(std::move(base));
+    auto base = std::make_unique<BasicType>("qubit");
+    auto quantum = std::make_unique<QuantumType>(std::move(base));
+    quantum->setProperty("entangled", true);
+    return quantum;
 }
 
 std::unique_ptr<QuantumType> createSuperposition() {
-    auto base = std::make_unique<BasicType>("complex");
-    return std::make_unique<QuantumType>(std::move(base));
+    auto base = std::make_unique<BasicType>("qubit");
+    auto quantum = std::make_unique<QuantumType>(std::move(base));
+    quantum->setProperty("superposition", true);
+    return quantum;
 }
 
 std::unique_ptr<QuantumType> createMeasurement() {
-    auto base = std::make_unique<BasicType>("complex");
-    return std::make_unique<QuantumType>(std::move(base));
+    auto base = std::make_unique<BasicType>("qubit");
+    auto quantum = std::make_unique<QuantumType>(std::move(base));
+    quantum->setProperty("measurement", true);
+    return quantum;
+}
+
+// 検証ヘルパー関数
+bool verifyConnectedness(const TopologyType& space) {
+    return space.verifyProperty("connected");
+}
+
+bool verifySeparationAxioms(const TopologyType& space) {
+    return space.verifyProperty("hausdorff");
+}
+
+bool verifyCompactness(const TopologyType& space) {
+    return space.verifyProperty("compact");
+}
+
+bool verifyEntanglement(const QuantumType& state) {
+    return state.verifyProperty("entangled");
+}
+
+bool verifySuperposition(const QuantumType& state) {
+    return state.verifyProperty("superposition");
+}
+
+bool verifyMeasurement(const QuantumType& state) {
+    return state.verifyProperty("measurement");
 }
 
 } // namespace test
