@@ -61,18 +61,18 @@ public:
         }
     };
 
-    class SubtypeConstraint2 : public TypeConstraint {
+    // 依存型制約
+    class DependentConstraint : public TypeConstraint {
     public:
-        SubtypeConstraint2(const Type* subtype, const Type* supertype)
-            : subtype_(subtype), supertype_(supertype) {}
+        DependentConstraint(const Type* dependent, const Type* target)
+            : TypeConstraint(
+                std::unique_ptr<Type>(const_cast<Type*>(dependent)), 
+                std::unique_ptr<Type>(const_cast<Type*>(target)), 
+                ConstraintKind::Dependent) {}
 
         bool verify() const override {
-            return subtype_ && supertype_ && subtype_->isSubtypeOf(*supertype_);
+            return getLeft() && getRight() && getLeft()->isSubtypeOf(*getRight());
         }
-
-    private:
-        const Type* subtype_;
-        const Type* supertype_;
     };
 
     // 量子制約
@@ -108,34 +108,6 @@ public:
             }
             return false;
         }
-    };
-
-    // 依存型制約
-    class DependentConstraint : public TypeConstraint {
-    public:
-        DependentConstraint(const Type* dependent, const Type* target)
-            : TypeConstraint(
-                std::unique_ptr<Type>(const_cast<Type*>(dependent)), 
-                std::unique_ptr<Type>(const_cast<Type*>(target)), 
-                ConstraintKind::Dependent) {}
-
-        bool verify() const override {
-            return getLeft() && getRight() && getLeft()->isSubtypeOf(*getRight());
-        }
-    };
-
-    class DependentConstraint2 : public TypeConstraint {
-    public:
-        DependentConstraint2(const Type* dependent, const Type* target)
-            : dependent_(dependent), target_(target) {}
-
-        bool verify() const override {
-            return dependent_ && target_ && dependent_->isSubtypeOf(*target_);
-        }
-
-    private:
-        const Type* dependent_;
-        const Type* target_;
     };
 
     // 制約の追加と検証

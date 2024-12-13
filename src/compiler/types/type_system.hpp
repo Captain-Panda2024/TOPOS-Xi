@@ -188,41 +188,28 @@ private:
 class TypeConstraint {
 public:
     enum class ConstraintKind {
-        Subtype,    // <:
-        Equal,      // =
-        Continuous, // ~
-        Quantum     // ⊗
+        Equal,      // 等価制約
+        Subtype,    // サブタイプ制約
+        Dependent,  // 依存型制約
+        Custom      // カスタム制約
     };
 
     TypeConstraint(std::unique_ptr<Type> left,
                   std::unique_ptr<Type> right,
                   ConstraintKind kind)
-        : left_(std::move(left)),
-          right_(std::move(right)),
-          kind_(kind) {}
+        : left_(std::move(left))
+        , right_(std::move(right))
+        , kind_(kind) {}
 
     virtual ~TypeConstraint() = default;
-    virtual bool verify() const {
-        switch (kind_) {
-            case ConstraintKind::Subtype:
-                return left_->isSubtypeOf(*right_);
-            case ConstraintKind::Equal:
-                return left_->isSubtypeOf(*right_) && right_->isSubtypeOf(*left_);
-            case ConstraintKind::Continuous:
-                if (auto topology = dynamic_cast<const TopologyType*>(left_.get())) {
-                    return topology->verify();
-                }
-                return false;
-            case ConstraintKind::Quantum:
-                if (auto quantum = dynamic_cast<const QuantumType*>(left_.get())) {
-                    return quantum->verify();
-                }
-                return false;
-        }
-        return false;
-    }
+    virtual bool verify() const = 0;
 
 protected:
+    const Type* getLeft() const { return left_.get(); }
+    const Type* getRight() const { return right_.get(); }
+    ConstraintKind getKind() const { return kind_; }
+
+private:
     std::unique_ptr<Type> left_;
     std::unique_ptr<Type> right_;
     ConstraintKind kind_;
