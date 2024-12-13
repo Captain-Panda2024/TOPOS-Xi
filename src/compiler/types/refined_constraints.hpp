@@ -47,6 +47,20 @@ public:
         }
     };
 
+    // サブタイプ制約
+    class SubtypeConstraint : public TypeConstraint {
+    public:
+        SubtypeConstraint(Type* left, Type* right)
+            : TypeConstraint(nullptr, nullptr, ConstraintKind::Subtype) {
+            left_ = left;
+            right_ = right;
+        }
+
+        bool verify() const override {
+            return left_->isSubtypeOf(*right_);
+        }
+    };
+
     // 量子制約
     class QuantumConstraint : public TypeConstraint {
     public:
@@ -90,7 +104,7 @@ public:
 
         bool verify() const override {
             if (auto dependent = dynamic_cast<const DependentType*>(left_.get())) {
-                return dependent->verify() && dependent->verifyDependency(*right_);
+                return dependent->verify() && dependent->isSubtypeOf(*right_);
             }
             return false;
         }
