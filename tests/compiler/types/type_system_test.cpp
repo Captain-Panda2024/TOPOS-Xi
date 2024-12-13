@@ -85,29 +85,29 @@ TEST_F(TypeSystemTest, QuantumTypeTest) {
 
 // 制約システムのテスト
 TEST_F(TypeSystemTest, ConstraintSystemTest) {
-    auto constraint_system = std::make_unique<RefinedConstraintSystem>();
-    auto type_a = std::make_unique<BasicType>("A");
-    auto type_b = std::make_unique<BasicType>("B");
-    
-    // 制約の追加
-    constraint_system->addConstraint(
-        std::make_unique<SubtypeConstraint>(type_a.get(), type_b.get()));
-    
-    // 制約の検証
-    EXPECT_TRUE(constraint_system->verifyAll());
-    
-    // 依存型の制約
+    auto type_a = std::make_unique<BasicType>("int");
+    auto type_b = std::make_unique<BasicType>("float");
+
+    RefinedConstraintSystem system;
+
+    // サブタイプ制約の追加
+    system.addConstraint(
+        std::make_unique<RefinedConstraintSystem::SubtypeConstraint>(type_a.get(), type_b.get()));
+
+    // 依存型の作成
     auto dependent_type = std::make_unique<DependentType>(
         std::move(type_a),
         [](const Type& t) { return true; }, // デフォルトの述語
         [](const Type& t) { return true; }, // デフォルトのトポロジー制約
         [](const Type& t) { return true; }  // デフォルトの量子制約
     );
-    constraint_system->addConstraint(
-        std::make_unique<DependentConstraint>(dependent_type.get(), type_b.get()));
-    
-    // 制約システム全体の検証
-    EXPECT_TRUE(constraint_system->verifyAll());
+
+    // 依存型制約の追加
+    system.addConstraint(
+        std::make_unique<RefinedConstraintSystem::DependentConstraint>(dependent_type.get(), type_b.get()));
+
+    // 制約の検証
+    EXPECT_TRUE(system.verifyAll());
 }
 
 // テストヘルパー関数

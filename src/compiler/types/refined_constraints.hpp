@@ -50,14 +50,14 @@ public:
     // サブタイプ制約
     class SubtypeConstraint : public TypeConstraint {
     public:
-        SubtypeConstraint(Type* left, Type* right)
-            : TypeConstraint(nullptr, nullptr, ConstraintKind::Subtype) {
-            left_.reset(left);
-            right_.reset(right);
-        }
+        SubtypeConstraint(const Type* subtype, const Type* supertype)
+            : TypeConstraint(
+                std::unique_ptr<Type>(const_cast<Type*>(subtype)), 
+                std::unique_ptr<Type>(const_cast<Type*>(supertype)), 
+                ConstraintKind::Subtype) {}
 
         bool verify() const override {
-            return left_->isSubtypeOf(*right_);
+            return getLeft() && getRight() && getLeft()->isSubtypeOf(*getRight());
         }
     };
 
@@ -113,14 +113,14 @@ public:
     // 依存型制約
     class DependentConstraint : public TypeConstraint {
     public:
-        DependentConstraint(std::unique_ptr<DependentType> type)
-            : TypeConstraint(std::move(type), nullptr, ConstraintKind::Equal) {}
+        DependentConstraint(const Type* dependent, const Type* target)
+            : TypeConstraint(
+                std::unique_ptr<Type>(const_cast<Type*>(dependent)), 
+                std::unique_ptr<Type>(const_cast<Type*>(target)), 
+                ConstraintKind::Dependent) {}
 
         bool verify() const override {
-            if (auto dependent = dynamic_cast<const DependentType*>(left_.get())) {
-                return dependent->verify() && dependent->isSubtypeOf(*right_);
-            }
-            return false;
+            return getLeft() && getRight() && getLeft()->isSubtypeOf(*getRight());
         }
     };
 
