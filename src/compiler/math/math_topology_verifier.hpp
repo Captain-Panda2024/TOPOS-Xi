@@ -6,6 +6,7 @@
 #include <map>
 #include <queue>
 #include <optional>
+#include <functional>
 #include <cmath>
 #include <algorithm>
 

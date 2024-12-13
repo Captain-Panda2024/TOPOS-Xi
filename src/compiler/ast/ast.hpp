@@ -27,7 +27,7 @@ class ExpressionNode;
 // 基本的なASTノード
 class ASTNode {
 public:
-    virtual ~ASTNode() = default;
+    virtual ~ASTNode() = 0; // 純粋仮想デストラクタ
     virtual void accept(ASTVisitor& visitor) = 0;
 };
 
@@ -45,6 +45,7 @@ public:
     IdentifierNode(const std::string& name, Location loc)
         : name_(name), location_(loc) {}
 
+    virtual ~IdentifierNode() override;
     const std::string& getName() const { return name_; }
     Location getLocation() const { return location_; }
 
@@ -68,6 +69,7 @@ public:
     TypeNode(TypeKind kind, std::unique_ptr<TypeNode> base = nullptr)
         : kind_(kind), base_type_(std::move(base)) {}
 
+    virtual ~TypeNode() override;
     TypeKind getKind() const { return kind_; }
     TypeNode* getBaseType() const { return base_type_.get(); }
 
@@ -88,6 +90,7 @@ public:
           type_(std::move(type)),
           value_(std::move(value)) {}
 
+    virtual ~PropertyNode() override;
     const IdentifierNode* getName() const { return name_.get(); }
     const TypeNode* getType() const { return type_.get(); }
     const ASTNode* getValue() const { return value_.get(); }
@@ -110,6 +113,7 @@ public:
           properties_(std::move(properties)),
           body_(std::move(body)) {}
 
+    virtual ~MappingNode() override;
     const IdentifierNode* getName() const { return name_.get(); }
     const std::vector<std::unique_ptr<PropertyNode>>& getProperties() const {
         return properties_;
@@ -136,6 +140,7 @@ public:
           properties_(std::move(properties)),
           mappings_(std::move(mappings)) {}
 
+    virtual ~ShapeNode() override;
     const IdentifierNode* getName() const { return name_.get(); }
     const std::vector<std::unique_ptr<PropertyNode>>& getProperties() const {
         return properties_;
@@ -162,6 +167,7 @@ public:
           properties_(std::move(properties)),
           shapes_(std::move(shapes)) {}
 
+    virtual ~SpaceNode() override;
     const IdentifierNode* getName() const { return name_.get(); }
     const std::vector<std::unique_ptr<PropertyNode>>& getProperties() const {
         return properties_;
@@ -184,6 +190,7 @@ public:
     PathElementNode(std::unique_ptr<IdentifierNode> name)
         : name_(std::move(name)) {}
 
+    virtual ~PathElementNode() override;
     const IdentifierNode* getName() const { return name_.get(); }
 
     void accept(ASTVisitor& visitor) override;
@@ -198,6 +205,7 @@ public:
     PathNode(std::vector<std::unique_ptr<PathElementNode>> elements)
         : elements_(std::move(elements)) {}
 
+    virtual ~PathNode() override;
     const std::vector<std::unique_ptr<PathElementNode>>& getElements() const {
         return elements_;
     }
@@ -223,9 +231,11 @@ public:
     ExpressionNode(ExprKind kind, Location loc)
         : kind_(kind), location_(loc) {}
 
-    virtual ~ExpressionNode() = default;
+    virtual ~ExpressionNode() override;
     ExprKind getKind() const { return kind_; }
     Location getLocation() const { return location_; }
+
+    virtual void accept(ASTVisitor& visitor) = 0;
 
 protected:
     ExprKind kind_;
@@ -238,8 +248,10 @@ public:
     IdentifierExprNode(const std::string& name, Location loc)
         : ExpressionNode(ExprKind::Identifier, loc), name_(name) {}
 
+    virtual ~IdentifierExprNode() override;
     const std::string& getName() const { return name_; }
-    void accept(ASTVisitor& visitor) override { visitor.visitIdentifierExpr(*this); }
+
+    void accept(ASTVisitor& visitor) override;
 
 private:
     std::string name_;
@@ -251,8 +263,10 @@ public:
     NumberExprNode(double value, Location loc)
         : ExpressionNode(ExprKind::Number, loc), value_(value) {}
 
+    virtual ~NumberExprNode() override;
     double getValue() const { return value_; }
-    void accept(ASTVisitor& visitor) override { visitor.visitNumberExpr(*this); }
+
+    void accept(ASTVisitor& visitor) override;
 
 private:
     double value_;
@@ -264,8 +278,10 @@ public:
     StringExprNode(const std::string& value, Location loc)
         : ExpressionNode(ExprKind::String, loc), value_(value) {}
 
+    virtual ~StringExprNode() override;
     const std::string& getValue() const { return value_; }
-    void accept(ASTVisitor& visitor) override { visitor.visitStringExpr(*this); }
+
+    void accept(ASTVisitor& visitor) override;
 
 private:
     std::string value_;
@@ -296,10 +312,12 @@ public:
           right_(std::move(right)),
           op_(op) {}
 
+    virtual ~BinaryExprNode() override;
     const ExpressionNode* getLeft() const { return left_.get(); }
     const ExpressionNode* getRight() const { return right_.get(); }
     OpKind getOp() const { return op_; }
-    void accept(ASTVisitor& visitor) override { visitor.visitBinaryExpr(*this); }
+
+    void accept(ASTVisitor& visitor) override;
 
 private:
     std::unique_ptr<ExpressionNode> left_;
@@ -322,9 +340,11 @@ public:
           operand_(std::move(operand)),
           op_(op) {}
 
+    virtual ~UnaryExprNode() override;
     const ExpressionNode* getOperand() const { return operand_.get(); }
     OpKind getOp() const { return op_; }
-    void accept(ASTVisitor& visitor) override { visitor.visitUnaryExpr(*this); }
+
+    void accept(ASTVisitor& visitor) override;
 
 private:
     std::unique_ptr<ExpressionNode> operand_;
@@ -341,9 +361,11 @@ public:
           callee_(std::move(callee)),
           args_(std::move(args)) {}
 
+    virtual ~CallExprNode() override;
     const ExpressionNode* getCallee() const { return callee_.get(); }
     const std::vector<std::unique_ptr<ExpressionNode>>& getArgs() const { return args_; }
-    void accept(ASTVisitor& visitor) override { visitor.visitCallExpr(*this); }
+
+    void accept(ASTVisitor& visitor) override;
 
 private:
     std::unique_ptr<ExpressionNode> callee_;
@@ -360,6 +382,7 @@ public:
           type_(std::move(type)),
           condition_(std::move(condition)) {}
 
+    virtual ~InvariantNode() override;
     const IdentifierNode* getName() const { return name_.get(); }
     const TypeNode* getType() const { return type_.get(); }
     const ASTNode* getCondition() const { return condition_.get(); }
@@ -378,6 +401,7 @@ public:
     ProgramNode(std::vector<std::unique_ptr<SpaceNode>> spaces)
         : spaces_(std::move(spaces)) {}
 
+    virtual ~ProgramNode() override;
     const std::vector<std::unique_ptr<SpaceNode>>& getSpaces() const {
         return spaces_;
     }

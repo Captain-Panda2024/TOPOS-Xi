@@ -32,10 +32,22 @@ if(CODE_COVERAGE AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     add_link_options(--coverage)
 endif()
 
-# ソースファイルの収集
-file(GLOB_RECURSE SOURCES 
-    "src/compiler/*.cpp"
-    "src/runtime/*.cpp"
+# ソースファイルの設定
+set(COMPILER_SOURCES
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/compiler/math/math_topology_verifier.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/compiler/topology/type_topology_verifier.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/compiler/topology/type_topology_verifier.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/compiler/parser/parser.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/compiler/ast/ast.cpp"
+)
+
+file(GLOB_RECURSE RUNTIME_SOURCES
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/runtime/*.cpp"
+)
+
+set(SOURCES
+    ${COMPILER_SOURCES}
+    ${RUNTIME_SOURCES}
 )
 
 # ライブラリターゲットの作成
@@ -44,6 +56,10 @@ target_include_directories(toposXi_lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/src/compiler
 )
+
+# LLVMライブラリのリンク
+llvm_map_components_to_libnames(llvm_libs support core irreader)
+target_link_libraries(toposXi_lib PUBLIC ${llvm_libs})
 
 # テストの設定
 add_subdirectory(tests)

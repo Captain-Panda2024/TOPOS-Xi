@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include <cmath>
 #include <numbers>
-#include "../../../src/compiler/math/topology_verifier.hpp"
+#include "../../../src/compiler/math/math_topology_verifier.hpp"
 #include "../../../src/compiler/math/quantum_verifier.hpp"
 #include <complex>
 #include <vector>

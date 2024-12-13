@@ -6,11 +6,12 @@
 #include <vector>
 #include <unordered_map>
 #include <optional>
+#include <stdexcept>
 #include "../ast/ast.hpp"
-#include "../math/topology_verifier.hpp"
+#include "../math/math_topology_verifier.hpp"
 #include "../math/quantum_verifier.hpp"
-#include "types/topology_traits.hpp"
-#include "types/quantum_traits.hpp"
+#include "topology_traits.hpp"
+#include "quantum_traits.hpp"
 
 namespace topos {
 namespace types {
@@ -53,7 +54,11 @@ class TopologyType : public Type {
 public:
     explicit TopologyType(std::unique_ptr<Type> baseType)
         : Type("topology"), base_type_(std::move(baseType)), 
-          topology_traits_(std::make_shared<ContinuousTopologyTraits>()) {}
+          topology_traits_(std::make_shared<ContinuousTopologyTraits>()) {
+        if (!base_type_) {
+            throw std::runtime_error("Base type is null");
+        }
+    }
 
     bool isSubtypeOf(const Type& other) const override {
         if (auto topology = dynamic_cast<const TopologyType*>(&other)) {
@@ -67,50 +72,58 @@ public:
     }
 
     bool verify() const override {
-        return verifyConnectedness() && 
-               verifySeparationAxioms() && 
-               verifyCompactness() && 
-               base_type_->verify();
-    }
+        try {
+            // 基本型の検証
+            if (!base_type_->verify()) {
+                lastError_ = "Base type verification failed";
+                return false;
+            }
 
-    bool verifyProperty(const std::string& property) const {
-        if (property == "connected") {
-            return verifyConnectedness();
-        } else if (property == "hausdorff") {
-            return verifySeparationAxioms();
-        } else if (property == "compact") {
-            return verifyCompactness();
+            // 設定されたプロパティのみを検証
+            for (const auto& prop : {
+                TopologyTraits::Property::CONTINUOUS,
+                TopologyTraits::Property::CONNECTED,
+                TopologyTraits::Property::COMPACT
+            }) {
+                try {
+                    if (!topology_traits_->verifyProperty(prop)) {
+                        lastError_ = "Property verification failed: " + 
+                                   TopologyTraits::propertyToString(prop);
+                        return false;
+                    }
+                } catch (const std::exception& e) {
+                    // プロパティが設定されていない場合はスキップ
+                    continue;
+                }
+            }
+            return true;
+        } catch (const std::exception& e) {
+            lastError_ = e.what();
+            return false;
         }
-        return false;
     }
 
-    void setProperty(const std::string& property, bool value) {
-        properties_[property] = value;
+    bool verifyProperty(TopologyTraits::Property prop) const {
+        try {
+            return topology_traits_->verifyProperty(prop);
+        } catch (const std::exception& e) {
+            lastError_ = std::string("Property verification failed: ") + e.what();
+            return false;
+        }
+    }
+
+    void setProperty(TopologyTraits::Property prop, bool value) {
+        topology_traits_->setProperty(prop, value);
     }
 
     const Type* getBaseType() const { return base_type_.get(); }
-
     const TopologyTraits& getTopologyTraits() const { return *topology_traits_; }
+    const std::string& getLastError() const { return lastError_; }
 
 private:
-    bool verifyConnectedness() const {
-        auto it = properties_.find("connected");
-        return it != properties_.end() ? it->second : false;
-    }
-
-    bool verifySeparationAxioms() const {
-        auto it = properties_.find("hausdorff");
-        return it != properties_.end() ? it->second : false;
-    }
-
-    bool verifyCompactness() const {
-        auto it = properties_.find("compact");
-        return it != properties_.end() ? it->second : false;
-    }
-
     std::unique_ptr<Type> base_type_;
-    std::unordered_map<std::string, bool> properties_;
     std::shared_ptr<TopologyTraits> topology_traits_;
+    mutable std::string lastError_;
 };
 
 // 量子型
@@ -118,7 +131,11 @@ class QuantumType : public Type {
 public:
     explicit QuantumType(std::unique_ptr<Type> baseType)
         : Type("quantum"), base_type_(std::move(baseType)),
-          quantum_traits_(std::make_shared<CoherentQuantumTraits>()) {}
+          quantum_traits_(std::make_shared<CoherentQuantumTraits>()) {
+        if (!base_type_) {
+            throw std::runtime_error("Base type is null");
+        }
+    }
 
     bool isSubtypeOf(const Type& other) const override {
         if (auto quantum = dynamic_cast<const QuantumType*>(&other)) {
@@ -132,50 +149,38 @@ public:
     }
 
     bool verify() const override {
-        return verifyUnitarity() && 
-               verifyNormalization() && 
-               verifyEntanglement() && 
-               base_type_->verify();
-    }
-
-    bool verifyProperty(const std::string& property) const {
-        if (property == "unitary") {
-            return verifyUnitarity();
-        } else if (property == "normalized") {
-            return verifyNormalization();
-        } else if (property == "entangled") {
-            return verifyEntanglement();
+        try {
+            return verifyProperty(QuantumTraits::Property::UNITARY) && 
+                   verifyProperty(QuantumTraits::Property::NORMALIZED) && 
+                   verifyProperty(QuantumTraits::Property::ENTANGLED) && 
+                   base_type_->verify();
+        } catch (const std::exception& e) {
+            lastError_ = e.what();
+            return false;
         }
-        return false;
     }
 
-    void setProperty(const std::string& property, bool value) {
-        properties_[property] = value;
+    bool verifyProperty(QuantumTraits::Property prop) const {
+        try {
+            return quantum_traits_->verifyProperty(prop);
+        } catch (const std::exception& e) {
+            lastError_ = std::string("Property verification failed: ") + e.what();
+            return false;
+        }
+    }
+
+    void setProperty(QuantumTraits::Property prop, bool value) {
+        quantum_traits_->setProperty(prop, value);
     }
 
     const Type* getBaseType() const { return base_type_.get(); }
-
     const QuantumTraits& getQuantumTraits() const { return *quantum_traits_; }
+    const std::string& getLastError() const { return lastError_; }
 
 private:
-    bool verifyUnitarity() const {
-        auto it = properties_.find("unitary");
-        return it != properties_.end() ? it->second : false;
-    }
-
-    bool verifyNormalization() const {
-        auto it = properties_.find("normalized");
-        return it != properties_.end() ? it->second : false;
-    }
-
-    bool verifyEntanglement() const {
-        auto it = properties_.find("entangled");
-        return it != properties_.end() ? it->second : false;
-    }
-
     std::unique_ptr<Type> base_type_;
-    std::unordered_map<std::string, bool> properties_;
     std::shared_ptr<QuantumTraits> quantum_traits_;
+    mutable std::string lastError_;
 };
 
 // 型環境
@@ -205,8 +210,8 @@ public:
     enum class ConstraintKind {
         Subtype,    // サブタイプ制約
         Dependent,  // 依存型制約
-        Continuous,  // 追加: 連続性制約
-        Quantum,     // 追加: 量子制約
+        Continuous, // 連続性制約
+        Quantum,    // 量子制約
         Custom      // カスタム制約
     };
 
@@ -215,7 +220,11 @@ public:
                   ConstraintKind kind)
         : left_(std::move(left))
         , right_(std::move(right))
-        , kind_(kind) {}
+        , kind_(kind) {
+        if (!left_) {
+            throw std::runtime_error("Left type is null");
+        }
+    }
 
     virtual ~TypeConstraint() = default;
     virtual bool verify() const = 0;
