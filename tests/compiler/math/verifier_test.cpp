@@ -1,4 +1,6 @@
 #include <gtest/gtest.h>
+#include <cmath>
+#include <numbers>
 #include "../../../src/compiler/math/topology_verifier.hpp"
 #include "../../../src/compiler/math/quantum_verifier.hpp"
 #include <complex>
@@ -21,11 +23,8 @@ protected:
     std::vector<Point<double>> createUnitCirclePoints(size_t n) {
         std::vector<Point<double>> points;
         for (size_t i = 0; i < n; ++i) {
-            double angle = 2.0 * M_PI * i / n;
-            points.emplace_back(std::vector<double>{
-                std::cos(angle),
-                std::sin(angle)
-            });
+            double angle = 2.0 * std::numbers::pi * i / n;
+            points.push_back(Point<double>({std::cos(angle), std::sin(angle)}));
         }
         return points;
     }

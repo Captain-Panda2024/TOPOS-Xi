@@ -42,23 +42,16 @@ file(GLOB_RECURSE SOURCES
 add_library(toposXi_lib STATIC ${SOURCES})
 target_include_directories(toposXi_lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/compiler
 )
 
-# 実行可能ファイルの作成
-add_executable(toposXi src/main.cpp)
-target_link_libraries(toposXi PRIVATE toposXi_lib)
-
 # テストの設定
-if(BUILD_TESTING)
-    enable_testing()
-    add_subdirectory(tests)
-endif()
+add_subdirectory(tests)
 
 # インストールルール
 install(TARGETS toposXi_lib
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
-    RUNTIME DESTINATION bin
     INCLUDES DESTINATION include
 )
 

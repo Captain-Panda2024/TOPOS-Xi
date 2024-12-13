@@ -60,6 +60,9 @@ public:
     using point_type = Point<T>;
     using open_set_type = OpenSet<T>;
 
+    TopologyVerifier() = default;
+    TopologyVerifier(const std::vector<point_type>& points) : points_(points) {}
+
     // パス連結性の検証
     bool verifyPathConnectedness(
         const std::vector<point_type>& points,
@@ -100,19 +103,48 @@ public:
             [](bool v) { return v; });
     }
 
-    // 分離公理（ハウスドルフ性）の検証
+    // 分離公理の検証
     bool verifySeparationAxioms(
         const std::vector<point_type>& points,
         const std::vector<open_set_type>& open_sets) {
         
+        // T0公理（Kolmogorov）の検証
         for (size_t i = 0; i < points.size(); ++i) {
             for (size_t j = i + 1; j < points.size(); ++j) {
-                if (!areSeparable(points[i], points[j], open_sets)) {
+                if (!verifyT0Separation(points[i], points[j], open_sets)) {
                     return false;
                 }
             }
         }
+
+        // T1公理（Fréchet）の検証
+        for (size_t i = 0; i < points.size(); ++i) {
+            for (size_t j = 0; j < points.size(); ++j) {
+                if (i != j && !verifyT1Separation(points[i], points[j], open_sets)) {
+                    return false;
+                }
+            }
+        }
+
+        // T2公理（Hausdorff）の検証
+        for (size_t i = 0; i < points.size(); ++i) {
+            for (size_t j = i + 1; j < points.size(); ++j) {
+                if (!verifyHausdorffSeparation(points[i], points[j], open_sets)) {
+                    return false;
+                }
+            }
+        }
+
         return true;
+    }
+
+    // コンパクト性の検証
+    bool verifyCompactness(
+        const std::vector<point_type>& points,
+        const std::vector<open_set_type>& open_sets) {
+        
+        // 有限部分被覆の存在を確認
+        return hasFiniteSubcover(points, open_sets);
     }
 
     // 開集合の逆像の検証
@@ -129,17 +161,9 @@ public:
         return true;
     }
 
-    // コンパクト性の検証（有限部分被覆の存在）
-    bool verifyCompactness(
-        const std::vector<point_type>& points,
-        const std::vector<open_set_type>& open_sets) {
-        
-        // 有限部分被覆の探索
-        std::vector<size_t> cover;
-        return findFiniteCover(points, open_sets, cover);
-    }
-
 private:
+    std::vector<point_type> points_;
+
     bool hasConnectingPath(
         const point_type& p1,
         const point_type& p2,
@@ -152,6 +176,75 @@ private:
             }
         }
         return false;
+    }
+
+    bool verifyT0Separation(
+        const point_type& p,
+        const point_type& q,
+        const std::vector<open_set_type>& open_sets) {
+        
+        // 少なくとも一方の点を含み、他方を含まない開集合が存在することを確認
+        return std::any_of(open_sets.begin(), open_sets.end(),
+            [&](const open_set_type& U) {
+                return U.contains(p) != U.contains(q);
+            });
+    }
+
+    bool verifyT1Separation(
+        const point_type& p,
+        const point_type& q,
+        const std::vector<open_set_type>& open_sets) {
+        
+        // 各点について、その点のみを含む開集合が存在することを確認
+        return std::any_of(open_sets.begin(), open_sets.end(),
+            [&](const open_set_type& U) {
+                return U.contains(p) && !U.contains(q);
+            });
+    }
+
+    bool verifyHausdorffSeparation(
+        const point_type& p,
+        const point_type& q,
+        const std::vector<open_set_type>& open_sets) {
+        
+        // 2点を分離する互いに素な開集合の組が存在することを確認
+        for (size_t i = 0; i < open_sets.size(); ++i) {
+            for (size_t j = 0; j < open_sets.size(); ++j) {
+                const auto& U = open_sets[i];
+                const auto& V = open_sets[j];
+                
+                if (U.contains(p) && V.contains(q)) {
+                    // 開集合が互いに素であることを確認
+                    bool disjoint = true;
+                    for (const auto& point : points_) {
+                        if (U.contains(point) && V.contains(point)) {
+                            disjoint = false;
+                            break;
+                        }
+                    }
+                    if (disjoint) return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    bool hasFiniteSubcover(
+        const std::vector<point_type>& points,
+        const std::vector<open_set_type>& open_sets) {
+        
+        // 全ての点が少なくとも1つの開集合に含まれることを確認
+        for (const auto& p : points) {
+            bool covered = false;
+            for (const auto& U : open_sets) {
+                if (U.contains(p)) {
+                    covered = true;
+                    break;
+                }
+            }
+            if (!covered) return false;
+        }
+        return true;
     }
 
     bool areSeparable(

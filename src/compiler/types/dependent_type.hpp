@@ -17,18 +17,18 @@ namespace types {
 class DependentType : public Type {
 public:
     using Predicate = std::function<bool(const Type&)>;
-    using TopologyConstraint = std::function<bool(const TopologyTraits&)>;
-    using QuantumConstraint = std::function<bool(const QuantumTraits&)>;
+    using TopologyConstraint = std::function<bool(const Type&)>;
+    using QuantumConstraint = std::function<bool(const Type&)>;
 
     DependentType(
         std::unique_ptr<Type> baseType,
-        Predicate predicate,
+        Predicate pred,
         TopologyConstraint topoConstraint,
         QuantumConstraint quantumConstraint)
-        : base_type_(std::move(baseType)),
-          predicate_(std::move(predicate)),
-          topology_constraint_(std::move(topoConstraint)),
-          quantum_constraint_(std::move(quantumConstraint)) {}
+        : base_type_(std::move(baseType))
+        , predicate_(std::move(pred))
+        , topology_constraint_(std::move(topoConstraint))
+        , quantum_constraint_(std::move(quantumConstraint)) {}
 
     bool isSubtypeOf(const Type& other) const override {
         if (auto dependent = dynamic_cast<const DependentType*>(&other)) {
@@ -56,7 +56,7 @@ public:
     // 位相的性質の検証
     bool verifyTopologicalConstraints(const Type& context) const {
         if (auto traits = getTopologyTraits(context)) {
-            return topology_constraint_(*traits);
+            return topology_constraint_(context);
         }
         return false;
     }
@@ -64,7 +64,7 @@ public:
     // 量子的性質の検証
     bool verifyQuantumConstraints(const Type& context) const {
         if (auto traits = getQuantumTraits(context)) {
-            return quantum_constraint_(*traits);
+            return quantum_constraint_(context);
         }
         return false;
     }
@@ -131,7 +131,7 @@ public:
         return createRefinementType(
             std::move(baseType),
             [](const Type&) { return true; },
-            [](const TopologyTraits&) { return true; },
+            [](const Type&) { return true; },
             std::move(quantumConstraint)
         );
     }
@@ -144,7 +144,7 @@ public:
             std::move(baseType),
             [](const Type&) { return true; },
             std::move(topoConstraint),
-            [](const QuantumTraits&) { return true; }
+            [](const Type&) { return true; }
         );
     }
 
@@ -157,11 +157,11 @@ public:
         return createRefinementType(
             std::move(baseType),
             [](const Type&) { return true; },
-            [constraints = std::move(topoConstraints)](const TopologyTraits& traits) {
+            [constraints = std::move(topoConstraints)](const Type& traits) {
                 return std::all_of(constraints.begin(), constraints.end(),
                     [&traits](const auto& constraint) { return constraint(traits); });
             },
-            [constraints = std::move(quantumConstraints)](const QuantumTraits& traits) {
+            [constraints = std::move(quantumConstraints)](const Type& traits) {
                 return std::all_of(constraints.begin(), constraints.end(),
                     [&traits](const auto& constraint) { return constraint(traits); });
             }

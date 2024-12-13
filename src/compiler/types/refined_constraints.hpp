@@ -61,6 +61,20 @@ public:
         }
     };
 
+    class SubtypeConstraint2 : public TypeConstraint {
+    public:
+        SubtypeConstraint2(const Type* subtype, const Type* supertype)
+            : subtype_(subtype), supertype_(supertype) {}
+
+        bool verify() const override {
+            return subtype_ && supertype_ && subtype_->isSubtypeOf(*supertype_);
+        }
+
+    private:
+        const Type* subtype_;
+        const Type* supertype_;
+    };
+
     // 量子制約
     class QuantumConstraint : public TypeConstraint {
     public:
@@ -108,6 +122,20 @@ public:
             }
             return false;
         }
+    };
+
+    class DependentConstraint2 : public TypeConstraint {
+    public:
+        DependentConstraint2(const Type* dependent, const Type* target)
+            : dependent_(dependent), target_(target) {}
+
+        bool verify() const override {
+            return dependent_ && target_ && dependent_->isSubtypeOf(*target_);
+        }
+
+    private:
+        const Type* dependent_;
+        const Type* target_;
     };
 
     // 制約の追加と検証

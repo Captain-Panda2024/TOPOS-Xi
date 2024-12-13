@@ -8,6 +8,21 @@ namespace topos {
 namespace types {
 namespace test {
 
+// Forward declarations of helper functions
+std::unique_ptr<TopologyType> createConnectedSpace();
+std::unique_ptr<TopologyType> createHausdorffSpace();
+std::unique_ptr<TopologyType> createCompactSpace();
+std::unique_ptr<QuantumType> createEntangledState();
+std::unique_ptr<QuantumType> createSuperposition();
+std::unique_ptr<QuantumType> createMeasurement();
+
+bool verifyConnectedness(const TopologyType& space);
+bool verifySeparationAxioms(const TopologyType& space);
+bool verifyCompactness(const TopologyType& space);
+bool verifyEntanglement(const QuantumType& state);
+bool verifySuperposition(const QuantumType& state);
+bool verifyMeasurement(const QuantumType& state);
+
 class TypeSystemTest : public ::testing::Test {
 protected:
     void SetUp() override {
@@ -97,44 +112,56 @@ TEST_F(TypeSystemTest, ConstraintSystemTest) {
 
 // テストヘルパー関数
 std::unique_ptr<TopologyType> createConnectedSpace() {
-    auto base = std::make_unique<BasicType>("real");
-    auto topology = std::make_unique<TopologyType>(std::move(base));
+    auto base_type = std::make_unique<BasicType>("real");
+    auto topology = std::make_unique<TopologyType>(std::move(base_type));
     topology->setProperty("connected", true);
+    topology->setProperty("hausdorff", true);
+    topology->setProperty("compact", false);
     return topology;
 }
 
 std::unique_ptr<TopologyType> createHausdorffSpace() {
-    auto base = std::make_unique<BasicType>("real");
-    auto topology = std::make_unique<TopologyType>(std::move(base));
+    auto base_type = std::make_unique<BasicType>("real");
+    auto topology = std::make_unique<TopologyType>(std::move(base_type));
+    topology->setProperty("connected", false);
     topology->setProperty("hausdorff", true);
+    topology->setProperty("compact", false);
     return topology;
 }
 
 std::unique_ptr<TopologyType> createCompactSpace() {
-    auto base = std::make_unique<BasicType>("real");
-    auto topology = std::make_unique<TopologyType>(std::move(base));
+    auto base_type = std::make_unique<BasicType>("real");
+    auto topology = std::make_unique<TopologyType>(std::move(base_type));
+    topology->setProperty("connected", true);
+    topology->setProperty("hausdorff", true);
     topology->setProperty("compact", true);
     return topology;
 }
 
 std::unique_ptr<QuantumType> createEntangledState() {
-    auto base = std::make_unique<BasicType>("qubit");
-    auto quantum = std::make_unique<QuantumType>(std::move(base));
+    auto base_type = std::make_unique<BasicType>("complex");
+    auto quantum = std::make_unique<QuantumType>(std::move(base_type));
+    quantum->setProperty("unitary", true);
+    quantum->setProperty("normalized", true);
     quantum->setProperty("entangled", true);
     return quantum;
 }
 
 std::unique_ptr<QuantumType> createSuperposition() {
-    auto base = std::make_unique<BasicType>("qubit");
-    auto quantum = std::make_unique<QuantumType>(std::move(base));
-    quantum->setProperty("superposition", true);
+    auto base_type = std::make_unique<BasicType>("complex");
+    auto quantum = std::make_unique<QuantumType>(std::move(base_type));
+    quantum->setProperty("unitary", true);
+    quantum->setProperty("normalized", true);
+    quantum->setProperty("entangled", false);
     return quantum;
 }
 
 std::unique_ptr<QuantumType> createMeasurement() {
-    auto base = std::make_unique<BasicType>("qubit");
-    auto quantum = std::make_unique<QuantumType>(std::move(base));
-    quantum->setProperty("measurement", true);
+    auto base_type = std::make_unique<BasicType>("complex");
+    auto quantum = std::make_unique<QuantumType>(std::move(base_type));
+    quantum->setProperty("unitary", false);
+    quantum->setProperty("normalized", true);
+    quantum->setProperty("entangled", false);
     return quantum;
 }
 
@@ -156,11 +183,11 @@ bool verifyEntanglement(const QuantumType& state) {
 }
 
 bool verifySuperposition(const QuantumType& state) {
-    return state.verifyProperty("superposition");
+    return state.verifyProperty("normalized") && !state.verifyProperty("entangled");
 }
 
 bool verifyMeasurement(const QuantumType& state) {
-    return state.verifyProperty("measurement");
+    return !state.verifyProperty("unitary") && state.verifyProperty("normalized");
 }
 
 } // namespace test

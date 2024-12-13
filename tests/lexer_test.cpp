@@ -5,7 +5,7 @@ using namespace topos::compiler;
 
 TEST(LexerTest, BasicTokenization) {
     std::string input = "space MySpace { }";
-    Lexer lexer(llvm::StringRef(input));
+    Lexer lexer{llvm::StringRef(input)};
 
     auto token1 = lexer.nextToken();
     EXPECT_EQ(token1.getType(), Token::Type::Space);

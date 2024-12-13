@@ -43,13 +43,6 @@ target_link_libraries(refined_constraints_test PRIVATE
     gtest_main
 )
 
-# 制約システムのテスト
-add_executable(refined_constraints_test compiler/types/refined_constraints_test.cpp)
-target_link_libraries(refined_constraints_test PRIVATE
-    toposXi_lib
-    gtest_main
-)
-
 # テストの登録
 add_test(NAME LexerTest COMMAND lexer_test)
 add_test(NAME ParserTest COMMAND parser_test)

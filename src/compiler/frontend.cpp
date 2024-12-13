@@ -72,7 +72,7 @@ public:
         }
 
         // Basic keyword matching
-        if (input.substr(position).startswith("space")) {
+        if (input.substr(position).starts_with("space")) {
             position += 5;
             return {TokenType::Space, llvm::StringRef(input.data() + position - 5, 5)};
         }

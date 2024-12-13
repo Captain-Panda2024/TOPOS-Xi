@@ -48,7 +48,6 @@ public:
     size_t getLine() const { return line_; }
     size_t getColumn() const { return column_; }
 
-private:
     Type type_;
     llvm::StringRef text_;
     size_t line_;
