@@ -71,14 +71,14 @@ public:
 
     // 型の特性取得
     static std::shared_ptr<TopologyTraits> getTopologyTraits(const Type& type) {
-        if (auto topo_type = dynamic_cast<const TopologyType*>(&type)) {
+        if (dynamic_cast<const TopologyType*>(&type)) {
             return std::make_shared<ContinuousTopologyTraits>();
         }
         return nullptr;
     }
 
     static std::shared_ptr<QuantumTraits> getQuantumTraits(const Type& type) {
-        if (auto quantum_type = dynamic_cast<const QuantumType*>(&type)) {
+        if (dynamic_cast<const QuantumType*>(&type)) {
             return std::make_shared<CoherentQuantumTraits>();
         }
         return nullptr;

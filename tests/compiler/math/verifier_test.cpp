@@ -22,9 +22,11 @@ protected:
     // 単位円の点を生成
     std::vector<Point<double>> createUnitCirclePoints(size_t n) {
         std::vector<Point<double>> points;
+        points.reserve(n);
+        constexpr double pi = 3.14159265358979323846;
         for (size_t i = 0; i < n; ++i) {
-            double angle = 2.0 * std::numbers::pi * i / n;
-            points.push_back(Point<double>({std::cos(angle), std::sin(angle)}));
+            double angle = 2.0 * pi * i / n;
+            points.emplace_back(std::cos(angle), std::sin(angle));
         }
         return points;
     }

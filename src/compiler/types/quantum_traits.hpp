@@ -106,10 +106,9 @@ public:
         return 0.0;  // 実装は省略
     }
 
-    bool verifyEntanglementPreservation(
-        const QuantumTraits& target) const override {
-        // エンタングルメント保存の検証
-        return true;  // 実装は省略
+    bool verifyEntanglementPreservation(const QuantumTraits&) const override {
+        // TODO: 実装
+        return true;
     }
 
 private:

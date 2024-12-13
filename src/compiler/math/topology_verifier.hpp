@@ -20,6 +20,9 @@ public:
     std::vector<T> coordinates;
 
     Point(const std::vector<T>& coords) : coordinates(coords) {}
+    
+    // Constructor for 2D points
+    Point(T x, T y) : coordinates{x, y} {}
 
     double distance(const Point& other) const {
         if (coordinates.size() != other.coordinates.size()) {

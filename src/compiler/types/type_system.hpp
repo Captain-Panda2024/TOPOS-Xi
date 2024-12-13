@@ -9,6 +9,8 @@
 #include "../ast/ast.hpp"
 #include "../math/topology_verifier.hpp"
 #include "../math/quantum_verifier.hpp"
+#include "types/topology_traits.hpp"
+#include "types/quantum_traits.hpp"
 
 namespace topos {
 namespace types {
@@ -16,16 +18,21 @@ namespace types {
 // 型の基底クラス
 class Type {
 public:
+    Type() = default;
+    explicit Type(std::string name) : name_(std::move(name)) {}
     virtual ~Type() = default;
     virtual bool isSubtypeOf(const Type& other) const = 0;
     virtual std::string toString() const = 0;
     virtual bool verify() const = 0;
+
+private:
+    std::string name_;
 };
 
 // 基本型（int, float, bool など）
 class BasicType : public Type {
 public:
-    explicit BasicType(const std::string& name) : name_(name) {}
+    explicit BasicType(const std::string& name) : Type(name), name_(name) {}
 
     bool isSubtypeOf(const Type& other) const override {
         if (auto basic = dynamic_cast<const BasicType*>(&other)) {
@@ -41,11 +48,12 @@ private:
     std::string name_;
 };
 
-// トポロジカル型
+// トポロジー型
 class TopologyType : public Type {
 public:
     explicit TopologyType(std::unique_ptr<Type> baseType)
-        : base_type_(std::move(baseType)) {}
+        : Type("topology"), base_type_(std::move(baseType)), 
+          topology_traits_(std::make_shared<ContinuousTopologyTraits>()) {}
 
     bool isSubtypeOf(const Type& other) const override {
         if (auto topology = dynamic_cast<const TopologyType*>(&other)) {
@@ -82,6 +90,8 @@ public:
 
     const Type* getBaseType() const { return base_type_.get(); }
 
+    const TopologyTraits& getTopologyTraits() const { return *topology_traits_; }
+
 private:
     bool verifyConnectedness() const {
         auto it = properties_.find("connected");
@@ -100,13 +110,15 @@ private:
 
     std::unique_ptr<Type> base_type_;
     std::unordered_map<std::string, bool> properties_;
+    std::shared_ptr<TopologyTraits> topology_traits_;
 };
 
 // 量子型
 class QuantumType : public Type {
 public:
     explicit QuantumType(std::unique_ptr<Type> baseType)
-        : base_type_(std::move(baseType)) {}
+        : Type("quantum"), base_type_(std::move(baseType)),
+          quantum_traits_(std::make_shared<CoherentQuantumTraits>()) {}
 
     bool isSubtypeOf(const Type& other) const override {
         if (auto quantum = dynamic_cast<const QuantumType*>(&other)) {
@@ -143,6 +155,8 @@ public:
 
     const Type* getBaseType() const { return base_type_.get(); }
 
+    const QuantumTraits& getQuantumTraits() const { return *quantum_traits_; }
+
 private:
     bool verifyUnitarity() const {
         auto it = properties_.find("unitary");
@@ -161,6 +175,7 @@ private:
 
     std::unique_ptr<Type> base_type_;
     std::unordered_map<std::string, bool> properties_;
+    std::shared_ptr<QuantumTraits> quantum_traits_;
 };
 
 // 型環境
@@ -188,9 +203,10 @@ private:
 class TypeConstraint {
 public:
     enum class ConstraintKind {
-        Equal,      // 等価制約
         Subtype,    // サブタイプ制約
         Dependent,  // 依存型制約
+        Continuous,  // 追加: 連続性制約
+        Quantum,     // 追加: 量子制約
         Custom      // カスタム制約
     };
 
@@ -209,7 +225,7 @@ protected:
     const Type* getRight() const { return right_.get(); }
     ConstraintKind getKind() const { return kind_; }
 
-private:
+protected:
     std::unique_ptr<Type> left_;
     std::unique_ptr<Type> right_;
     ConstraintKind kind_;

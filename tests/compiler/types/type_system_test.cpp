@@ -97,9 +97,9 @@ TEST_F(TypeSystemTest, ConstraintSystemTest) {
     // 依存型の作成
     auto dependent_type = std::make_unique<DependentType>(
         std::move(type_a),
-        [](const Type& t) { return true; }, // デフォルトの述語
-        [](const Type& t) { return true; }, // デフォルトのトポロジー制約
-        [](const Type& t) { return true; }  // デフォルトの量子制約
+        [](const Type&) -> bool { return true; }, // デフォルトの述語
+        [](const Type&) -> bool { return true; }, // デフォルトのトポロジー制約
+        [](const Type&) -> bool { return true; }  // デフォルトの量子制約
     );
 
     // 依存型制約の追加
