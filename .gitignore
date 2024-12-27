@@ -1,49 +1,82 @@
-# Build directories
-build/
-out/
+# TOPOS-Ξ Git Ignore Configuration
 
-# IDE specific files
-.vs/
+# Build directories
+/build/
+/dist/
+/out/
+cmake-build-*/
+
+# IDE and editor files
+.idea/
 .vscode/
 *.swp
 *.swo
+*~
+.project
+.classpath
+.settings/
 
-# Compiled Object files
-*.slo
-*.lo
+# Compiled files
 *.o
 *.obj
-
-# Precompiled Headers
-*.gch
-*.pch
-
-# Compiled Dynamic libraries
+*.exe
+*.dll
 *.so
 *.dylib
-*.dll
+*.class
+*.pyc
 
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
+# Language-specific
+/node_modules/
+/vendor/
+/.vs/
+*.suo
+*.user
+*.userosscache
+*.dbmdl
 
-# Executables
-*.exe
-*.out
-*.app
+# Documentation generated
+/docs/_build/
+/site/
 
-# CMake
-CMakeCache.txt
-CMakeFiles/
-cmake_install.cmake
-install_manifest.txt
+# Test outputs
+/tests/results/
+/coverage/
+*.coverage
+*.lcov
 
-# Testing
-Testing/
-CTestTestfile.cmake
+# Debug files
+*.log
+*.debug
+core.*
 
-# Windows system files
-desktop.ini
+# OS specific
+.DS_Store
 Thumbs.db
+desktop.ini
+
+# Project specific
+*.topos-cache
+*.topos-tmp
+/quantum-sim/
+/temp/
+
+# Environment
+.env
+.env.local
+.env.*.local
+*.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Dependency lock files
+package-lock.json
+yarn.lock
+composer.lock
+Gemfile.lock
+
+# Backup files
+*.bak
+*.backup
+*.old
