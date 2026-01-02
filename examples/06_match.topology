@@ -1,0 +1,17 @@
+space MatchTest {
+    properties {
+        q: Qubit = "superposition"
+    }
+
+    mapping step_a() { path { Measurement } }
+    mapping step_b() { path { init } }
+
+    mapping main() {
+        path {
+            Measurement -> match (q) {
+                "0" -> { path { step_a } }
+                "1" -> { path { step_b } }
+            } -> end
+        }
+    }
+}

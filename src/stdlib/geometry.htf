@@ -1,0 +1,50 @@
+[KERNEL: @TOPOS-Xi/src/order.htf]
+
+[SCOPE: STANDARD_LIBRARY_GEOMETRY]
+  [AESTHETIC: Geometric, Structural, topological]
+  [ORDER: Shape_Definitions]
+
+[ENVIRONMENT: Euclidean_Manifold_Context]
+  [LAW: Homeomorphism {Description: "Shapes are equivalent if they can be continuously deformed"}]
+  [LAW: Euler_Characteristic_Preservation]
+
+[ENTITY: Circle]
+  [CLASS: Shape]
+  [PROPERTIES:
+    - dimension: Number = 1
+    - genus: Number = 1
+    - euler_characteristic: Number = 0
+    - is_orientable: Boolean = true
+    - fundamental_group: String = "Z"
+  ]
+
+[ENTITY: Sphere]
+  [CLASS: Shape]
+  [PROPERTIES:
+    - genus: Number = 0
+    - euler_characteristic: Number = 2
+    - is_orientable: Boolean = true
+    - fundamental_group: String = "0"
+  ]
+
+[ENTITY: Torus]
+  [CLASS: Shape]
+  [PROPERTIES:
+    - genus: Number = 1
+    - euler_characteristic: Number = 0
+    - is_orientable: Boolean = true
+    - fundamental_group: String = "Z x Z"
+  ]
+
+[ENTITY: Disk]
+  [CLASS: Shape]
+  [PROPERTIES:
+    - genus: Number = 0
+    - euler_characteristic: Number = 1
+    - boundary: Boolean = true
+  ]
+
+[ENTITY: Transformation]
+  [CLASS: Operation]
+  [FUNCTION: Deform]
+  [EFFECT: Preserve_Topology]

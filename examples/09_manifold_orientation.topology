@@ -1,0 +1,7 @@
+space ManifoldTest {
+    mapping torus_to_klein(): Torus -> KleinBottle {
+        path {
+            Torus -> KleinBottle
+        }
+    }
+}

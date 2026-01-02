@@ -1,0 +1,12 @@
+space TestSpace {
+    properties {
+        is_ready: Boolean = true
+        pos: Qubit = "superposition"
+    }
+    
+    mapping test_flow() {
+        path {
+            init -> Measurement -> end
+        }
+    }
+}

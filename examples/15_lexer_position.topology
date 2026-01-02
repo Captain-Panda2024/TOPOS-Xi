@@ -1,0 +1,28 @@
+space PositionTest {
+    properties {
+        // Test Inputs
+        start_line: Number = 1
+        start_col: Number = 0
+        start_off: Number = 0
+        char_a: String = "A"
+        char_nl: String = "\n"
+    }
+
+    mapping test_advance_char() -> Position {
+        path {
+            pair(init_pos(start_line, start_col, start_off), char_a) -> advance_pos
+        }
+    }
+
+    mapping test_advance_newline() -> Position {
+        path {
+            pair(init_pos(start_line, start_col, start_off), char_nl) -> advance_pos
+        }
+    }
+
+    mapping main() {
+        path {
+            test_advance_char() -> test_advance_newline()
+        }
+    }
+}

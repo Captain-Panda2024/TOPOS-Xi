@@ -1,0 +1,37 @@
+[KERNEL: @TOPOS-Xi/src/order.htf]
+
+[SCOPE: STANDARD_LIBRARY_CATEGORY_THEORY]
+  [AESTHETIC: Structural, Abstract, Compositional]
+  [ORDER: Category_Component_Definitions]
+
+[ENVIRONMENT: Abstract_Algebraic_Context]
+  [LAW: Identity_Morphism {Description: "Every object has an identity morphism"}]
+  [LAW: Composition_Associativity {Description: "f . (g . h) = (f . g) . h"}]
+
+[ENTITY: Category]
+  [CLASS: Topology<Space>]
+  [PROPERTIES:
+    - has_objects: Boolean = true
+    - has_morphisms: Boolean = true
+  ]
+
+[ENTITY: Object]
+  [CLASS: Type<Space>]
+  [DEFINITION: An entity within a Category.]
+
+[ENTITY: Morphism]
+  [CLASS: Mapping]
+  [PROPERTIES:
+    - source: Object
+    - target: Object
+  ]
+  [FUNCTION: Compose]
+  [EFFECT: Continuity_Check]
+
+[ENTITY: Functor]
+  [CLASS: Mapping<Category, Category>]
+  [DEFINITION: A mapping between categories that preserves the categorical structure.]
+
+[ENTITY: NaturalTransformation]
+  [CLASS: Mapping<Functor, Functor>]
+  [DEFINITION: A way of transforming one functor into another while respecting the internal structure.]

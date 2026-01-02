@@ -1,0 +1,21 @@
+space RealLexer {
+    properties {
+        input: String = "ABC"
+        start_pos: Number = 0
+    }
+
+    mapping process_char(stream: SourceStream) -> SourceStream * String {
+        path {
+            read_char(stream)
+        }
+    }
+
+    mapping main() {
+        path {
+            process_char(input) -> match(snd) {
+                "A" -> { path { fst } } 
+                "B" -> { path { fst } }
+            }
+        }
+    }
+}

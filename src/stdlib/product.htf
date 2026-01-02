@@ -1,0 +1,26 @@
+[KERNEL: @TOPOS-Xi/src/order.htf]
+
+[SCOPE: STANDARD_LIBRARY_PRODUCT]
+  [AESTHETIC: Constructive, Universal, Cartesian]
+  [ORDER: Product_Space_Definition]
+
+[ENVIRONMENT: Category_Theory_Context]
+  [LAW: Universal_Property_Product {Description: "For any Z with f: Z->A and g: Z->B, there exists unique h: Z->A*B"}]
+
+[ENTITY: ProductSpace]
+  [CLASS: Type<Space>]
+  [PROPERTIES:
+    - left: Space
+    - right: Space
+    - dimension: Number = left.dimension + right.dimension
+    - euler_characteristic: Number = left.euler_characteristic * right.euler_characteristic
+    - is_orientable: Boolean = left.is_orientable && right.is_orientable
+  ]
+
+[ENTITY: Projection]
+  [CLASS: Morphism]
+  [FUNCTION: Select_Component]
+
+[ENTITY: Pair]
+  [CLASS: Concept]
+  [DEFINITION: An element (a, b) in A * B]

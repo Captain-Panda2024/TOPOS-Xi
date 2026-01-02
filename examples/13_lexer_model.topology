@@ -1,0 +1,21 @@
+space LexerDomain {
+    properties {
+        stream: String = "TOPOS"
+        pos: Number = 0
+    }
+
+    mapping next_token(state: SourceStream * Position) -> (SourceStream * Position) * LexedToken {
+        path {
+            pair(state, token("TOKEN_ID"))
+        }
+    }
+
+    mapping main() {
+        properties {
+            initial_state: SourceStream * Position = pair(stream, pos)
+        }
+        path {
+            next_token(initial_state) -> fst -> snd
+        }
+    }
+}

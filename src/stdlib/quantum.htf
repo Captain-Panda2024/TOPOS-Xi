@@ -1,0 +1,28 @@
+[KERNEL: @TOPOS-Xi/src/order.htf]
+
+[SCOPE: STANDARD_LIBRARY_QUANTUM]
+  [AESTHETIC: Probabilistic, Coherent, Linear_Algebraic]
+  [ORDER: Quantum_State_Definition]
+
+[ENVIRONMENT: Hilbert_Space_Context]
+  [LAW: Normalization {Description: "Total probability must be 1"}]
+  [LAW: Unitarity {Description: "Time evolution must be unitary"}]
+  [LAW: No_Cloning {Description: "Arbitrary unknown quantum states cannot be copied"}]
+
+[ENTITY: Qubit]
+  [CLASS: QuantumState]
+  [REPRESENTATION: alpha|0> + beta|1>]
+  [CONSTRAINT: |alpha|^2 + |beta|^2 = 1]
+
+[ENTITY: Superposition]
+  [CLASS: State_Property]
+  [FUNCTION: Linear_Combination]
+
+[ENTITY: Entanglement]
+  [CLASS: State_Correlation]
+  [FUNCTION: Non_Local_Correlation]
+
+[ENTITY: Measurement]
+  [CLASS: Operation]
+  [EFFECT: Collapse_Wavefunction]
+  [RETURN: Classical_Bit]

@@ -1,0 +1,31 @@
+space SpaceA {}
+space SpaceB {}
+space SpaceC {}
+
+space CategoryTest {
+    mapping f(): SpaceA -> SpaceB {
+        path { init }
+    }
+
+    mapping g(): SpaceB -> SpaceC {
+        path { init }
+    }
+
+    mapping valid_comp(): SpaceA -> SpaceC {
+        path {
+            f -> g
+        }
+    }
+
+    mapping invalid_comp(): SpaceA -> SpaceB {
+        path {
+            f -> g
+        }
+    }
+
+    mapping main() {
+        path {
+            valid_comp
+        }
+    }
+}

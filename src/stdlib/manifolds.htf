@@ -1,0 +1,52 @@
+[KERNEL: @TOPOS-Xi/src/order.htf]
+
+[SCOPE: STANDARD_LIBRARY_MANIFOLDS]
+  [AESTHETIC: Differentiable, Smooth, Topological]
+  [ORDER: Manifold_Definitions]
+
+[ENVIRONMENT: Differential_Topology_Context]
+  [LAW: Orientation_Preservation {Description: "Mapping between orientable manifolds must preserve orientation"}]
+  [LAW: Dimensional_Consistency {Description: "Morphisms between manifolds should respect dimension"}]
+
+[ENTITY: Manifold]
+  [CLASS: Type<Space>]
+  [PROPERTIES:
+    - dimension: Number
+    - is_orientable: Boolean
+  ]
+
+[ENTITY: MobiusStrip]
+  [CLASS: Manifold]
+  [PROPERTIES:
+    - dimension: Number = 2
+    - is_orientable: Boolean = false
+    - euler_characteristic: Number = 0
+    - fundamental_group: String = "Z"
+  ]
+
+[ENTITY: KleinBottle]
+  [CLASS: Manifold]
+  [PROPERTIES:
+    - dimension: Number = 2
+    - is_orientable: Boolean = false
+    - euler_characteristic: Number = 0
+    - fundamental_group: String = "⟨a,b | abab⁻¹=1⟩"
+  ]
+
+[ENTITY: Sphere2D]
+  [CLASS: Manifold]
+  [PROPERTIES:
+    - dimension: Number = 2
+    - is_orientable: Boolean = true
+    - euler_characteristic: Number = 2
+    - fundamental_group: String = "0"
+  ]
+
+[ENTITY: ProjectivePlane]
+  [CLASS: Manifold]
+  [PROPERTIES:
+    - dimension: Number = 2
+    - is_orientable: Boolean = false
+    - euler_characteristic: Number = 1
+    - fundamental_group: String = "Z/2Z"
+  ]

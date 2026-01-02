@@ -1,0 +1,25 @@
+[KERNEL: @TOPOS-Xi/order.htf]
+
+[SCOPE: COMPILER_AND_RUNTIME_IMPLEMENTATION]
+  [AESTHETIC: Modular_Design, Type_Driven_Development]
+  [ORDER: Lexical_Analysis, Syntactic_Parsing, Type_Verification]
+
+[ENVIRONMENT: Python_Implementation_Context]
+  [LAW: No_Side_Effects_In_Verification {Strict: True}]
+  [LAW: Immutable_AST_Nodes]
+  [LAW: Detailed_Error_Reporting]
+
+[ENTITY: Lexer]
+  [FUNCTION: Tokenize_Source_Code]
+  [DETAILS: Based on Grammar_Spec 1.1]
+
+[ENTITY: Parser]
+  [FUNCTION: Build_AST]
+  [DETAILS: Based on Grammar_Spec 2.1-2.3]
+
+[ENTITY: AST]
+  [CLASS: Immutable_Structure]
+  [DETAILS: Represents Spaces, Shapes, and Mappings]
+
+[TEMPORAL_FLOW]
+  [PHASE: Tokenization] -> [PHASE: AST_Construction] -> [PHASE: Type_Checking]

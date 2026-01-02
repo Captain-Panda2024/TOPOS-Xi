@@ -1,0 +1,7 @@
+space ProductTest {
+    mapping torus_via_product(): Sphere * Sphere -> Torus {
+        path {
+            init
+        }
+    }
+}

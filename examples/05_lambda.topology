@@ -1,0 +1,11 @@
+space LambdaTest {
+    properties {
+        q1: Qubit = "superposition"
+    }
+
+    mapping main() {
+        path {
+            init -> (q: Qubit) { path { Measurement } } -> end
+        }
+    }
+}

@@ -1,0 +1,12 @@
+space GeometryTest {
+    properties {
+        my_ball: Sphere
+        my_donut: Torus
+    }
+
+    mapping ImpossibleMorph() {
+        path {
+            Sphere -> Torus
+        }
+    }
+}

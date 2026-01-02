@@ -1,0 +1,13 @@
+space ProductPropertyTest {
+    mapping build_torus(): Circle * Circle -> Torus {
+        path {
+            init
+        }
+    }
+
+    mapping invalid_collapse(): Circle * Circle -> Sphere {
+        path {
+            init
+        }
+    }
+}

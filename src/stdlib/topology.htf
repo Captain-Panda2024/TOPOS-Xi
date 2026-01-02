@@ -1,0 +1,32 @@
+[KERNEL: @TOPOS-Xi/src/order.htf]
+
+[SCOPE: STANDARD_LIBRARY_TOPOLOGY]
+  [AESTHETIC: Axiomatic, Abstract, rigor]
+  [ORDER: Topological_Space_Definition]
+
+[ENVIRONMENT: Mathematical_Foundation]
+  [LAW: Axiom_T1 {Description: "Open sets definition"}]
+  [LAW: Axiom_T2 {Description: "Intersection of finite open sets is open"}]
+  [LAW: Axiom_T3 {Description: "Union of arbitrary open sets is open"}]
+
+[ENTITY: TopologicalSpace]
+  [CLASS: Concept]
+  [DEFINITION:
+    Let X be a set. A topology T on X is a collection of subsets of X such that:
+    1. Empty set and X are in T.
+    2. Any union of elements of T is in T.
+    3. Any intersection of finitely many elements of T is in T.
+  ]
+
+[ENTITY: OpenSet]
+  [CLASS: Type<Subset>]
+  [PROPERTIES:
+    - is_open: Boolean = true
+  ]
+
+[ENTITY: ContinuousMap]
+  [CLASS: Mapping]
+  [DEFINITION:
+    f: X -> Y is continuous if for every open set V in Y, 
+    the inverse image f^(-1)(V) is an open set in X.
+  ]

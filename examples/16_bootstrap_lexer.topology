@@ -1,0 +1,52 @@
+// [ORDER: BOOTSTRAP_OUROBOROS]
+// [AESTHETIC: Minimal, Recursive, Deterministic]
+
+space BootstrapLexer {
+    properties {
+        // Input: "ABC"
+        input_str: String = "ABC"
+        start_pos: Position = init_pos(1, 0, 0)
+        
+        // Terminals
+        nil_token: LexedToken = token("NIL")
+        unknown_token: LexedToken = token("UNKNOWN")
+    }
+
+    mapping tokenize(state: LexerState) -> Object {
+        properties {
+            stream: SourceStream = fst(state)
+            pos: Position = snd(state)
+            
+            // Read next char
+            split: Pair = read_char(stream)
+            rest_stream: SourceStream = fst(split)
+            char: String = snd(split)
+
+            // Calculate next position (even if EOF, eager eval)
+            next_pos: Position = advance_pos(pair(pos, char))
+        }
+        path {
+            match(char) {
+                "" -> { path { nil_token } }
+                "_" -> { 
+                    path {
+                        // Recursion: Cons(Token, Rest)
+                        pair(
+                            unknown_token,
+                            tokenize(pair(rest_stream, next_pos))
+                        )
+                    } 
+                }
+            }
+        }
+    }
+
+    mapping main() {
+        properties {
+            initial_state: LexerState = pair(input_str, start_pos)
+        }
+        path {
+            tokenize(initial_state)
+        }
+    }
+}

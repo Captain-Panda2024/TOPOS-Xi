@@ -1,0 +1,21 @@
+space ScopedSpace {
+    properties {
+        global_val: Number = 100
+        pos: Qubit = "superposition"
+    }
+
+    mapping sub_task(target: Qubit) {
+        properties {
+            local_id: Number = 1
+        }
+        path {
+            init -> Measurement -> end
+        }
+    }
+
+    mapping main() {
+        path {
+            sub_task(pos)
+        }
+    }
+}

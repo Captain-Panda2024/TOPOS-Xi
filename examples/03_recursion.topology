@@ -1,0 +1,17 @@
+space RecursiveTest {
+    properties {
+        counter: Number = 0
+    }
+
+    mapping step_one() {
+        path {
+            Measurement
+        }
+    }
+
+    mapping main_flow() {
+        path {
+            step_one -> step_one
+        }
+    }
+}

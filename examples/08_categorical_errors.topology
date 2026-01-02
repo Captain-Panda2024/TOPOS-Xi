@@ -1,0 +1,15 @@
+space SpaceA {}
+space SpaceB {}
+space SpaceC {}
+
+space CategoryTest {
+    mapping f(): SpaceA -> SpaceB {
+        path { init }
+    }
+
+    mapping mismatch(): SpaceA -> SpaceC {
+        path {
+            f -> f 
+        }
+    }
+}

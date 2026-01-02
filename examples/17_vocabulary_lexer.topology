@@ -1,0 +1,80 @@
+// [ORDER: VOCABULARY_EXPANSION]
+// [AESTHETIC: Semantics, Branching, Filtering]
+
+space VocabularyLexer {
+    properties {
+        // Input: "A 1 B"
+        input_str: String = "A 1 B"
+        start_pos: Position = init_pos(1, 0, 0)
+        
+        // Terminals
+        nil_token: LexedToken = token("NIL", "")
+    }
+
+    mapping tokenize(state: LexerState) -> Object {
+        properties {
+            stream: SourceStream = fst(state)
+            pos: Position = snd(state)
+            
+            // Read next char
+            split: Pair = read_char(stream)
+            rest_stream: SourceStream = fst(split)
+            char: String = snd(split)
+
+            // Calculate next position
+            next_pos: Position = advance_pos(pair(pos, char))
+            next_state: LexerState = pair(rest_stream, next_pos)
+        }
+        path {
+            match(char) {
+                "" -> { path { nil_token } }
+                " " -> { 
+                    // Skip whitespace: Recurse without producing a token
+                    path { tokenize(next_state) } 
+                }
+                "A" -> { 
+                    path {
+                        pair(
+                            token("ID", "A"),
+                            tokenize(next_state)
+                        )
+                    } 
+                }
+                "B" -> { 
+                    path {
+                        pair(
+                            token("ID", "B"),
+                            tokenize(next_state)
+                        )
+                    } 
+                }
+                "1" -> { 
+                    path {
+                        pair(
+                            token("NUM", "1"),
+                            tokenize(next_state)
+                        )
+                    } 
+                }
+                "_" -> { 
+                    // Default: UNKNOWN
+                    path {
+                        pair(
+                            token("UNKNOWN", char),
+                            tokenize(next_state)
+                        )
+                    } 
+                }
+            }
+        }
+    }
+
+    mapping main() {
+        properties {
+            initial_state: LexerState = pair(input_str, start_pos)
+        }
+        path {
+            tokenize(initial_state)
+        }
+    }
+}

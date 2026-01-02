@@ -1,0 +1,74 @@
+[KERNEL: @TOPOS-Xi/src/order.htf]
+
+[SCOPE: COMPILER_SELF_SPECIFICATION]
+  [AESTHETIC: Meta_Circular, Recursive_Logic]
+  [ORDER: Compiler_Component_Definitions]
+
+[ENTITY: Compiler]
+  [CLASS: Topology<Mapping>]
+  [PROPERTIES:
+    - version: String = "0.1.0-alpha"
+    - is_self_hosting: Boolean = false
+  ]
+
+[ENTITY: SourceStream]
+  [CLASS: Type<Space>]
+  [PROPERTIES:
+    - content: String
+    - length: Number
+  ]
+
+[ENTITY: Position]
+  [CLASS: Type<Space>]
+  [PROPERTIES:
+    - line: Number
+    - column: Number
+    - offset: Number
+  ]
+
+[ENTITY: LexerState]
+  [CLASS: SourceStream * Position]
+  [DEFINITION: The product space representing the current state of lexical analysis.]
+
+[ENTITY: LexedToken]
+  [CLASS: Type<Space>]
+  [PROPERTIES:
+    - type: String
+    - value: String
+    - span: Position * Position
+  ]
+
+[ENTITY: Lexer]
+  [CLASS: Mapping]
+  [FUNCTION: NextToken]
+  [INPUT: LexerState]
+  [OUTPUT: LexerState * LexedToken]
+  [EFFECT: State_Transition]
+
+[ENTITY: TokenConstructor]
+  [CLASS: Mapping]
+  [FUNCTION: token]
+  [INPUT: String]
+  [OUTPUT: LexedToken]
+
+[ENTITY: StreamOps]
+  [CLASS: Mapping]
+  [FUNCTION: read_char]
+  [INPUT: SourceStream]
+  [OUTPUT: SourceStream * String]
+  [EFFECT: State_Transition]
+
+[ENTITY: PosOps]
+  [CLASS: Mapping]
+  [FUNCTION: advance_pos]
+  [INPUT: Position * String]
+  [OUTPUT: Position]
+
+[ENTITY: PosFactory]
+  [CLASS: Mapping]
+  [FUNCTION: init_pos]
+  [INPUT: Number * Number * Number]
+  [OUTPUT: Position]
+
+
+

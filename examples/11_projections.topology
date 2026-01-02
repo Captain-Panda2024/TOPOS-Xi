@@ -1,0 +1,19 @@
+space ProjectionTest {
+    mapping project_left(): Sphere * Torus -> Sphere {
+        path {
+            fst
+        }
+    }
+    
+    mapping project_right(): Sphere * Torus -> Torus {
+        path {
+            snd
+        }
+    }
+
+    mapping invalid_projection(): Sphere * Torus -> Sphere {
+        path {
+            snd 
+        }
+    }
+}
